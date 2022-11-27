@@ -14,7 +14,7 @@ interface Indexer : CoroutineScope {
 
     fun init() {
         addSearchListener {
-            updateDocumentsThatContainsTerms()
+            updateDocumentsThatContainTerms()
         }
         addOnWindowClosingListener {
             job.cancel()
@@ -54,29 +54,26 @@ interface Indexer : CoroutineScope {
 
     fun setStatus(text: String, iconRunning: Boolean)
 
-    fun updateDocumentsThatContainsTerms() {
+    fun updateDocumentsThatContainTerms() {
         val tokens = getTokensToSearch()
-        clearResults()
+
+        updateDocumentsThatContainTerms(listOf())
+        updateStatus(Status.SEARCH_IN_PROGRESS)
 
         val startTime = System.currentTimeMillis()
         launch(Dispatchers.Default) {
             updateDocumentThatContainsTerms(tokens) { documents ->
                 withContext(Dispatchers.Main) {
-                    updateDocumentsThatContainsTerms(documents)
+                    updateDocumentsThatContainTerms(documents)
                     updateStatus(Status.SEARCH_COMPLETED, startTime)
                 }
             }
         }
     }
 
-    private fun clearResults() {
-        updateDocumentsThatContainsTerms(listOf())
-        updateStatus(Status.SEARCH_IN_PROGRESS)
-    }
-
     fun addSearchListener(listener: () -> Unit)
 
-    fun updateDocumentsThatContainsTerms(documents: List<Path>)
+    fun updateDocumentsThatContainTerms(documents: List<Path>)
 
     fun addOnWindowClosingListener(listener: () -> Unit)
 

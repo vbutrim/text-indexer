@@ -9,6 +9,9 @@ object DocumentsIndexer {
     private val mutex: Mutex = Mutex();
 
     suspend fun getDocumentThatContainTokenPaths(tokens: List<String>): List<Path> {
+        if (tokens.isEmpty()) {
+            return listOf()
+        }
         mutex.withLock {
             return tokens
                 .asSequence()

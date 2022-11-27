@@ -12,35 +12,34 @@ import javax.swing.*
 import javax.swing.table.DefaultTableModel
 
 private val INSETS = Insets(3, 10, 3, 10)
-private val COLUMNS = arrayOf("Documents with terms")
+private val SEARCH_RESULTS_COLUMNS = arrayOf("Documents that contain tokens")
+private val INDEXED_DOCUMENTS_COLUMNS = arrayOf("Indexed documents")
 
 class IndexerUI : JFrame("TextIndexer"), Indexer {
 
-    private val terms = JTextField(20).apply {
+    private val tokensInput = JTextField(20).apply {
         toolTipText = "comma separated"
     }
-    private val search = JButton("Search documents")
+    private val searchButton = JButton("Search documents")
     private val searchResults = SearchResults()
+    private val indexedDocuments = IndexedDocuments()
     private val statusBar = StatusBar()
 
     override val job = Job()
 
-    override fun updateDocumentsThatContainsTerms(documents: List<Path>) {
-        searchResults.updateWith(documents)
-    }
-
-    override fun addSearchListener(listener: () -> Unit) {
-        search.addActionListener { listener() }
-    }
-
     init {
-        // Create UI
         rootPane.contentPane = JPanel(GridBagLayout()).apply {
-            addLabeled("Terms", terms)
+            addLabeled("Tokens", tokensInput)
             addWide(JPanel().apply {
-                add(search)
+                add(searchButton)
             })
             addWide(searchResults.scroll) {
+                weightx = 1.0
+                weighty = 1.0
+                fill = GridBagConstraints.BOTH
+            }
+            addWideSeparator()
+            addWide(indexedDocuments.scroll) {
                 weightx = 1.0
                 weighty = 1.0
                 fill = GridBagConstraints.BOTH
@@ -57,6 +56,14 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
         init()
     }
 
+    override fun updateDocumentsThatContainTerms(documents: List<Path>) {
+        searchResults.updateWith(documents)
+    }
+
+    override fun addSearchListener(listener: () -> Unit) {
+        searchButton.addActionListener { listener() }
+    }
+
     override fun setStatus(text: String, iconRunning: Boolean) {
         statusBar.updateWith(text, iconRunning)
     }
@@ -70,16 +77,16 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
     }
 
     override fun getTokensToSearch(): List<String> {
-        return terms.text
+        return tokensInput.text
             .trim()
             .lowercase()
             .split(",")
             .filter { it.isNotEmpty() }
     }
 
-    private class SearchResults {
-        private val tableModel = NonEditableTableModel()
-        private class NonEditableTableModel : DefaultTableModel(COLUMNS, 0) {
+    private abstract class NonEditableListElement(private val columns: Array<String>) {
+        private val tableModel = NonEditableTableModel(columns)
+        private class NonEditableTableModel(columns: Array<String>) : DefaultTableModel(columns, 0) {
             override fun isCellEditable(row: Int, column: Int): Boolean {
                 return false
             }
@@ -89,7 +96,7 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
             preferredSize = Dimension(200, 200)
         }
 
-        fun updateWith(documents: List<Path>) {
+        protected fun set(documents: List<String>) {
             if (documents.isNotEmpty()) {
                 log.info("Updating result with ${documents.size} rows")
             } else {
@@ -97,10 +104,22 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
             }
             tableModel.setDataVector(
                 documents
-                    .map { arrayOf(it.toString()) }
+                    .map { arrayOf(it) }
                     .toTypedArray(),
-                COLUMNS
+                columns
             )
+        }
+    }
+
+    private class SearchResults: NonEditableListElement(SEARCH_RESULTS_COLUMNS) {
+        fun updateWith(documents: List<Path>) {
+            super.set(documents.map { it.toString() })
+        }
+    }
+
+    private class IndexedDocuments: NonEditableListElement(INDEXED_DOCUMENTS_COLUMNS) {
+        fun updateWith(documents: List<Path>) {
+            super.set(documents.map { it.toString() })
         }
     }
 
