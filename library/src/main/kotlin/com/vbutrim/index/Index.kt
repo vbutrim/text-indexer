@@ -1,8 +1,10 @@
 package com.vbutrim.index
 
 import java.util.*
+import kotlin.collections.HashMap
 
-class Index(private val documentIdsByToken: MutableMap<String, MutableSet<Int>>) {
+object Index {
+    private val documentIdsByToken: MutableMap<String, MutableSet<Int>> = HashMap();
 
     fun getDocumentThatContainTokenIds(token: String): Set<Int> {
         return documentIdsByToken[token] ?: Collections.emptySet()

@@ -1,1 +1,0 @@
-C:\work\TextIndexer\ui\build\classes\kotlin\main\com\vbutrim\MainKt.class

@@ -4,12 +4,10 @@ import java.nio.file.Path
 import java.time.Instant
 import java.util.function.Supplier
 
-data class IndexedDocuments(
-    private val root: Node,
-    private val nodeById: MutableMap<Int, Node>,
-    private var nextId: Int)
-{
-    constructor() : this(Node.notIndexedDir(), HashMap<Int, Node>(), 0)
+object IndexedDocuments {
+    private val root: Node = Node.notIndexedDir();
+    private val nodeById: MutableMap<Int, Node> = HashMap();
+    private var nextId: Int = 0;
 
     fun addDocument(document: Document.Tokenized): File {
         val node = computeDirNode(document.getPath())
