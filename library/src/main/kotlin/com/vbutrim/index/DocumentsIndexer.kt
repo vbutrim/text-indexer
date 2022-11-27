@@ -8,14 +8,16 @@ object DocumentsIndexer {
     private val documentTokenizer: DocumentTokenizer = DocumentTokenizer.BasedOnWordSeparation()
     private val mutex: Mutex = Mutex();
 
-    suspend fun getDocumentThatContainTokenPaths(vararg tokens: String): List<Path> {
+    suspend fun getDocumentThatContainTokenPaths(tokens: List<String>): List<Path> {
         mutex.withLock {
             return tokens
+                .asSequence()
                 .map { Index.getDocumentThatContainTokenIds(it) }
                 .reduce { acc, it -> acc.intersect(it) }
                 .mapNotNull { IndexedDocuments.getFileById(it) }
                 .map { it.path }
                 .sorted()
+                .toList()
         }
     }
 

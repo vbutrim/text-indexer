@@ -7,6 +7,7 @@ import java.awt.GridBagLayout
 import java.awt.Insets
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
+import java.nio.file.Path
 import javax.swing.*
 import javax.swing.table.DefaultTableModel
 
@@ -26,6 +27,24 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
     }
 
     override val job = Job()
+
+    override fun updateDocumentsThatContainsTerms(documents: List<Path>) {
+        if (documents.isNotEmpty()) {
+            log.info("Updating result with ${documents.size} rows")
+        } else {
+            log.info("Clearing result")
+        }
+        resultsModel.setDataVector(
+            documents
+                .map { arrayOf(it.toString()) }
+                .toTypedArray(),
+            COLUMNS
+        )
+    }
+
+    override fun addSearchListener(listener: () -> Unit) {
+        search.addActionListener { listener() }
+    }
 
     init {
         // Create UI
@@ -60,6 +79,12 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
                 listener()
             }
         })
+    }
+
+    override fun getTokensToSearch(): List<String> {
+        return terms.text
+            .split(",")
+            .map { it.trim().lowercase() }
     }
 }
 
