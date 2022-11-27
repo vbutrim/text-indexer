@@ -76,6 +76,10 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
         })
     }
 
+    override fun setActionsStatus(newSearchIsEnabled: Boolean, newIndexingIsEnabled: Boolean) {
+        searchButton.isEnabled = newSearchIsEnabled
+    }
+
     override fun getTokensToSearch(): List<String> {
         return tokensInput.text
             .trim()

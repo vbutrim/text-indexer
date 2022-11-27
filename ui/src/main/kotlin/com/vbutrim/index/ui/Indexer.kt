@@ -57,6 +57,7 @@ interface Indexer : CoroutineScope {
     fun updateDocumentsThatContainTerms() {
         val tokens = getTokensToSearch()
 
+        setActionsStatus(newSearchIsEnabled = false, newIndexingIsEnabled = false)
         updateDocumentsThatContainTerms(listOf())
         updateStatus(Status.SEARCH_IN_PROGRESS)
 
@@ -66,6 +67,7 @@ interface Indexer : CoroutineScope {
                 withContext(Dispatchers.Main) {
                     updateDocumentsThatContainTerms(documents)
                     updateStatus(Status.SEARCH_COMPLETED, startTime)
+                    setActionsStatus(newSearchIsEnabled = true, newIndexingIsEnabled = true)
                 }
             }
         }
@@ -76,6 +78,8 @@ interface Indexer : CoroutineScope {
     fun updateDocumentsThatContainTerms(documents: List<Path>)
 
     fun addOnWindowClosingListener(listener: () -> Unit)
+
+    fun setActionsStatus(newSearchIsEnabled: Boolean, newIndexingIsEnabled: Boolean)
 
     fun getTokensToSearch(): List<String>
 }
