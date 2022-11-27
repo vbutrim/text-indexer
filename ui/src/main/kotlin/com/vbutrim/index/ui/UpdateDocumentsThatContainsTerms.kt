@@ -7,12 +7,12 @@ import java.nio.file.Path
 
 suspend fun updateDocumentThatContainsTerms(
     tokens: List<String>,
-    updateResultsOnUI: suspend (List<Path>, completed: Boolean) -> Unit)
+    updateResultsOnUI: suspend (List<Path>) -> Unit)
 {
     coroutineScope {
         launch {
             val documents = DocumentsIndexer.getDocumentThatContainTokenPaths(tokens)
-            updateResultsOnUI.invoke(documents, true)
+            updateResultsOnUI.invoke(documents)
         }
     }
 }

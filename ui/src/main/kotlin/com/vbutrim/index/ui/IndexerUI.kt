@@ -20,26 +20,13 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
         toolTipText = "comma separated"
     }
     private val search = JButton("Search documents")
-    private val resultsModel = DefaultTableModel(COLUMNS, 0)
-    private val results = JTable(resultsModel)
-    private val resultsScroll = JScrollPane(results).apply {
-        preferredSize = Dimension(200, 200)
-    }
+    private val searchResults = SearchResults()
+    private val statusBar = StatusBar()
 
     override val job = Job()
 
     override fun updateDocumentsThatContainsTerms(documents: List<Path>) {
-        if (documents.isNotEmpty()) {
-            log.info("Updating result with ${documents.size} rows")
-        } else {
-            log.info("Clearing result")
-        }
-        resultsModel.setDataVector(
-            documents
-                .map { arrayOf(it.toString()) }
-                .toTypedArray(),
-            COLUMNS
-        )
+        searchResults.updateWith(documents)
     }
 
     override fun addSearchListener(listener: () -> Unit) {
@@ -53,16 +40,13 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
             addWide(JPanel().apply {
                 add(search)
             })
-            addWide(resultsScroll) {
+            addWide(searchResults.scroll) {
                 weightx = 1.0
                 weighty = 1.0
                 fill = GridBagConstraints.BOTH
             }
-/*            addLabeled("Password/Token", password)
             addWideSeparator()
-            addLabeled("Organization", org)
-            addLabeled("Variant", variant)*/
-            addWideSeparator()
+            addWide(statusBar.bar)
 /*            addWide(JPanel().apply {
                 add(load)
                 add(cancel)
@@ -71,6 +55,10 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
         }
 
         init()
+    }
+
+    override fun setStatus(text: String, iconRunning: Boolean) {
+        statusBar.updateWith(text, iconRunning)
     }
 
     override fun addOnWindowClosingListener(listener: () -> Unit) {
@@ -83,8 +71,47 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
 
     override fun getTokensToSearch(): List<String> {
         return terms.text
+            .trim()
+            .lowercase()
             .split(",")
-            .map { it.trim().lowercase() }
+            .filter { it.isNotEmpty() }
+    }
+
+    private class SearchResults {
+        private val tableModel = NonEditableTableModel()
+        private class NonEditableTableModel : DefaultTableModel(COLUMNS, 0) {
+            override fun isCellEditable(row: Int, column: Int): Boolean {
+                return false
+            }
+        }
+        private val results = JTable(tableModel)
+        val scroll = JScrollPane(results).apply {
+            preferredSize = Dimension(200, 200)
+        }
+
+        fun updateWith(documents: List<Path>) {
+            if (documents.isNotEmpty()) {
+                log.info("Updating result with ${documents.size} rows")
+            } else {
+                log.info("Clearing result")
+            }
+            tableModel.setDataVector(
+                documents
+                    .map { arrayOf(it.toString()) }
+                    .toTypedArray(),
+                COLUMNS
+            )
+        }
+    }
+
+    private class StatusBar {
+        private val icon = ImageIcon(javaClass.classLoader.getResource("ajax-loader.gif"))
+        val bar = JLabel("", null, SwingConstants.CENTER)
+
+        fun updateWith(text: String, iconRunning: Boolean) {
+            bar.text = text
+            bar.icon = if (iconRunning) icon else null
+        }
     }
 }
 
