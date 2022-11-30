@@ -7,7 +7,9 @@ import java.awt.GridBagLayout
 import java.awt.Insets
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
+import java.io.File
 import java.nio.file.Path
+import java.util.*
 import javax.swing.*
 import javax.swing.table.DefaultTableModel
 
@@ -22,6 +24,8 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
     }
     private val searchButton = JButton("Search documents")
     private val searchResults = SearchResults()
+    private val addPathToIndexButton = JButton("Add paths")
+    private val removePathFromIndexButton = JButton("Remove paths")
     private val indexedDocuments = IndexedDocuments()
     private val statusBar = StatusBar()
 
@@ -39,6 +43,10 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
                 fill = GridBagConstraints.BOTH
             }
             addWideSeparator()
+            addWide(JPanel().apply {
+                add(addPathToIndexButton)
+                add(removePathFromIndexButton)
+            })
             addWide(indexedDocuments.scroll) {
                 weightx = 1.0
                 weighty = 1.0
@@ -46,11 +54,6 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
             }
             addWideSeparator()
             addWide(statusBar.bar)
-/*            addWide(JPanel().apply {
-                add(load)
-                add(cancel)
-            })
-            addWide(loadingStatus)*/
         }
 
         init()
@@ -76,8 +79,39 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
         })
     }
 
-    override fun setActionsStatus(newSearchIsEnabled: Boolean, newIndexingIsEnabled: Boolean) {
+    override fun addGetDocumentsToIndexListener(listener: () -> Unit) {
+        addPathToIndexButton.addActionListener { listener() }
+    }
+
+    override fun getDocumentsToIndex(): List<Path> {
+        val fileChooser = JFileChooser()
+
+        fileChooser.currentDirectory = File(System.getProperty("user.home"))
+        fileChooser.fileSelectionMode = JFileChooser.FILES_AND_DIRECTORIES
+        fileChooser.isMultiSelectionEnabled = true
+
+        val result = fileChooser.showOpenDialog(this)
+
+        if (result == JFileChooser.APPROVE_OPTION) {
+            val selectedFiles = fileChooser.selectedFiles
+                .map { it.toPath() }
+                .toList()
+            log.debug("Selected files: $selectedFiles")
+            return selectedFiles
+        }
+
+        log.debug("Cancel to to select files")
+        return Collections.emptyList()
+    }
+
+    override fun updateIndexedDocuments(documents: List<Path>) {
+        indexedDocuments.updateWith(documents)
+    }
+
+    override fun setActionsStatus(newSearchIsEnabled: Boolean, indexIsEnabled: Boolean) {
         searchButton.isEnabled = newSearchIsEnabled
+        addPathToIndexButton.isEnabled = indexIsEnabled
+        removePathFromIndexButton.isEnabled = indexIsEnabled
     }
 
     override fun getTokensToSearch(): List<String> {
@@ -129,7 +163,7 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
 
     private class StatusBar {
         private val icon = ImageIcon(javaClass.classLoader.getResource("ajax-loader.gif"))
-        val bar = JLabel("", null, SwingConstants.CENTER)
+        val bar = JLabel("Choose files/directories to index", null, SwingConstants.CENTER)
 
         fun updateWith(text: String, iconRunning: Boolean) {
             bar.text = text

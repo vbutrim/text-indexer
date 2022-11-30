@@ -13,16 +13,45 @@ interface Indexer : CoroutineScope {
         get() = job + Dispatchers.Main
 
     fun init() {
-        addSearchListener {
-            updateDocumentsThatContainTerms()
-        }
         addOnWindowClosingListener {
             job.cancel()
             exitProcess(0)
         }
+        addSearchListener {
+            updateDocumentsThatContainTerms()
+        }
+        addGetDocumentsToIndexListener {
+            addDocumentsToIndex()
+        }
     }
 
-    private enum class Status { IDLE, SEARCH_COMPLETED, SEARCH_IN_PROGRESS, INDEX_COMPLETED, INDEX_IN_PROGRESS }
+    fun setStatus(text: String, iconRunning: Boolean)
+
+    fun setActionsStatus(newSearchIsEnabled: Boolean, newIndexingIsEnabled: Boolean)
+
+    /**
+     * search
+     */
+    fun addSearchListener(listener: () -> Unit)
+
+    fun updateDocumentsThatContainTerms() {
+        val tokens = getTokensToSearch()
+
+        setActionsStatus(newSearchIsEnabled = false, newIndexingIsEnabled = false)
+        updateDocumentsThatContainTerms(listOf())
+        updateStatus(Status.SEARCH_IN_PROGRESS)
+
+        val startTime = System.currentTimeMillis()
+        launch(Dispatchers.Default) {
+            updateDocumentThatContainsTerms(tokens) { documents ->
+                withContext(Dispatchers.Main) {
+                    updateDocumentsThatContainTerms(documents)
+                    updateStatus(Status.SEARCH_COMPLETED, startTime)
+                    setActionsStatus(newSearchIsEnabled = true, newIndexingIsEnabled = true)
+                }
+            }
+        }
+    }
 
     private fun updateStatus(
         status: Status,
@@ -52,34 +81,51 @@ interface Indexer : CoroutineScope {
         setStatus(text, iconRunning)
     }
 
-    fun setStatus(text: String, iconRunning: Boolean)
+    fun getTokensToSearch(): List<String>
 
-    fun updateDocumentsThatContainTerms() {
-        val tokens = getTokensToSearch()
+    fun updateDocumentsThatContainTerms(documents: List<Path>)
+
+    /**
+     * close window
+     */
+    fun addOnWindowClosingListener(listener: () -> Unit)
+
+    /**
+     * documents to index
+     */
+    fun addGetDocumentsToIndexListener(listener: () -> Unit)
+
+    fun addDocumentsToIndex() {
+        val pathsToIndex = getDocumentsToIndex()
+
+        if (pathsToIndex.isEmpty()) {
+            return
+        }
 
         setActionsStatus(newSearchIsEnabled = false, newIndexingIsEnabled = false)
-        updateDocumentsThatContainTerms(listOf())
-        updateStatus(Status.SEARCH_IN_PROGRESS)
+        updateStatus(Status.INDEX_IN_PROGRESS)
 
         val startTime = System.currentTimeMillis()
         launch(Dispatchers.Default) {
-            updateDocumentThatContainsTerms(tokens) { documents ->
+            addDocumentsToIndex(pathsToIndex) { indexedDocuments ->
                 withContext(Dispatchers.Main) {
-                    updateDocumentsThatContainTerms(documents)
-                    updateStatus(Status.SEARCH_COMPLETED, startTime)
+                    updateIndexedDocuments(indexedDocuments)
+                    updateStatus(Status.INDEX_COMPLETED, startTime)
                     setActionsStatus(newSearchIsEnabled = true, newIndexingIsEnabled = true)
                 }
             }
         }
     }
 
-    fun addSearchListener(listener: () -> Unit)
+    fun getDocumentsToIndex(): List<Path>
 
-    fun updateDocumentsThatContainTerms(documents: List<Path>)
+    fun updateIndexedDocuments(documents: List<Path>)
 
-    fun addOnWindowClosingListener(listener: () -> Unit)
-
-    fun setActionsStatus(newSearchIsEnabled: Boolean, newIndexingIsEnabled: Boolean)
-
-    fun getTokensToSearch(): List<String>
+    private enum class Status {
+        IDLE,
+        SEARCH_COMPLETED,
+        SEARCH_IN_PROGRESS,
+        INDEX_COMPLETED,
+        INDEX_IN_PROGRESS
+    }
 }

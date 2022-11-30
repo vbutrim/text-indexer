@@ -1,8 +1,11 @@
 package com.vbutrim.index
 
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.actor
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.nio.file.Path
+import java.util.*
 
 object DocumentsIndexer {
     private val documentTokenizer: DocumentTokenizer = DocumentTokenizer.BasedOnWordSeparation()
@@ -25,17 +28,55 @@ object DocumentsIndexer {
     }
 
     suspend fun updateWith(path: Path) {
-        mutex.withLock {
-            val existing: IndexedDocuments.File? = IndexedDocuments.getFileByPath(path)
+        updateWith(listOf(path))
+    }
 
-            if (existing != null) {
-                Index.remove(existing.id)
+    /**
+     * @return all indexed paths
+     */
+    suspend fun updateWith(paths: List<Path>): List<Path> {
+        mutex.withLock {
+            coroutineScope {
+                val actor = indexerActor()
+
+                val tasks = paths.map {
+                    launch {
+                        actor.send(RemoveIfPresentDocumentMsg(it))
+
+                        val document: Document.Tokenized = documentTokenizer.tokenize(DocumentReader.read(it))
+
+                        actor.send(AddDocumentMsg(document))
+                    }
+                }
+
+                tasks.joinAll()
+                actor.close()
             }
 
-            val document: Document.Tokenized = documentTokenizer.tokenize(DocumentReader.read(path))
-
-            val id = IndexedDocuments.addDocument(document).id
-            Index.updateWith(document, id)
+            return paths
         }
     }
+
+    @OptIn(ObsoleteCoroutinesApi::class)
+    private fun CoroutineScope.indexerActor() = actor<IndexerMsg> {
+        for (msg in channel) {
+            when (msg) {
+                is RemoveIfPresentDocumentMsg -> {
+                    val existing: IndexedDocuments.File? = IndexedDocuments.getFileByPath(msg.path)
+
+                    if (existing != null) {
+                        Index.remove(existing.id)
+                    }
+                }
+                is AddDocumentMsg -> {
+                    val documentId = IndexedDocuments.addDocument(msg.document).id
+                    Index.updateWith(msg.document, documentId)
+                }
+            }
+        }
+    }
+
+    sealed class IndexerMsg
+    class RemoveIfPresentDocumentMsg(val path: Path) : IndexerMsg()
+    class AddDocumentMsg(val document: Document.Tokenized) : IndexerMsg()
 }

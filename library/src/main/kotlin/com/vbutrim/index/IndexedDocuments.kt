@@ -56,8 +56,8 @@ object IndexedDocuments {
     class Node(
         private val children: MutableMap<String, Node>,
         private val file: File?,
-        private val isIndexed: Boolean
-    ) {
+        private val isIndexed: Boolean)
+    {
         init {
             if (file != null) {
                 check(isIndexed)
