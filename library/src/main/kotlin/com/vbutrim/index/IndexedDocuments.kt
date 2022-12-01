@@ -1,25 +1,32 @@
 package com.vbutrim.index
 
+import com.vbutrim.file.FilesAndDirs
 import java.nio.file.Path
 import java.time.Instant
 import java.util.function.Supplier
 
 object IndexedDocuments {
     private val root: Node = Node.notIndexedDir();
-    private val nodeById: MutableMap<Int, Node> = HashMap();
+    private val fileNodeById: MutableMap<Int, Node> = HashMap();
     private var nextId: Int = 0;
 
-    fun addDocument(document: Document.Tokenized): File {
-        val node = computeDirNode(document.getPath())
+    fun add(dir: FilesAndDirs.Dir) {
+        val dirNode = computeDirNode(dir.getParent())
+
+        dirNode.computeIfAbsent(dir.getName()) { Node.indexedDir() }
+    }
+
+    fun add(document: Document.Tokenized): File {
+        val fileNode = computeDirNode(document.getPath())
             .computeIfAbsent(document.getFileName()) { Node.file(File.of(nextId++, document)) }
 
-        nodeById.computeIfAbsent(node.asFileOrThrow().id) { node }
+        fileNodeById.computeIfAbsent(fileNode.asFileOrThrow().id) { fileNode }
 
-        return node.asFileOrThrow()
+        return fileNode.asFileOrThrow()
     }
 
     fun getFileById(id: Int): File? {
-        return nodeById[id]?.asFile()
+        return fileNodeById[id]?.asFile()
     }
 
     fun getFileByPath(path: Path): File? {
