@@ -113,26 +113,28 @@ object IndexedDocuments {
     }
 
     fun getAllIndexedPaths(): List<Item> {
-        return root.getSortedChildren().flatMap { dfs(it.value, Path.of(it.key)) }
+        return root
+            .getSortedChildren()
+            .flatMap { depthFirstSearch(it.value, Path.of(it.key)) }
     }
 
-    private fun dfs(parent: Node, parentPath: Path): List<Item> {
+    private fun depthFirstSearch(parent: Node, parentPath: Path): List<Item> {
         return when (parent) {
             is Node.File -> {
                 return listOf(parent.asFile())
             }
 
             is Node.Dir -> {
-                dfsDirNode(parent, parentPath)
+                depthFirstSearch(parent, parentPath)
             }
         }
     }
 
-    private fun dfsDirNode(parent: Node.Dir, parentPath: Path): List<Item> {
+    private fun depthFirstSearch(parent: Node.Dir, parentPath: Path): List<Item> {
         val items = arrayListOf<Item>()
 
         for (child in parent.getSortedChildren()) {
-            items.addAll(dfs(child.value, parentPath.resolve(child.key)))
+            items.addAll(depthFirstSearch(child.value, parentPath.resolve(child.key)))
         }
 
         if (parent.isIndexed()) {
@@ -143,7 +145,6 @@ object IndexedDocuments {
     }
 
     private sealed class Node {
-
         class File(private val file: IndexedDocuments.File) : Node() {
             companion object {
                 fun cons(file: IndexedDocuments.File): File {
@@ -160,9 +161,7 @@ object IndexedDocuments {
             }
         }
 
-        class Dir(
-            private var isIndexed: Boolean
-        ) : Node() {
+        class Dir(private var isIndexed: Boolean) : Node() {
 
             private val children: MutableMap<String, Node> = HashMap()
 
