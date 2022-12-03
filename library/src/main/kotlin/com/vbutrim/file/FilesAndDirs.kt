@@ -25,7 +25,7 @@ class FilesAndDirs(private val files: List<File>, val dirs: List<Dir>) {
         }
     }
 
-    class Dir(val path: AbsolutePath, internal val files: List<File>) {
+    class Dir(private val path: AbsolutePath, internal val files: List<File>) {
 
         fun getParent(): Path {
             return path.getParent()
