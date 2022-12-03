@@ -10,6 +10,7 @@ import java.awt.event.WindowEvent
 import java.io.File
 import java.nio.file.Path
 import java.util.*
+import java.util.stream.Stream
 import javax.swing.*
 import javax.swing.table.DefaultTableModel
 
@@ -154,8 +155,27 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
     }
 
     private class IndexedDocuments: NonEditableListElement(INDEXED_DOCUMENTS_COLUMNS) {
-        fun updateWith(documents: List<com.vbutrim.index.IndexedDocuments.Item>) {
-            super.set(documents.map { arrayOf(it.getPathAsString()) })
+        fun updateWith(indexedItems: List<com.vbutrim.index.IndexedDocuments.Item>) {
+            super.set(consRows(indexedItems).toList())
+        }
+
+        private fun consRows(indexedItems: List<com.vbutrim.index.IndexedDocuments.Item>): Stream<Array<*>> {
+            return indexedItems
+                .stream()
+                .flatMap { consRows(it) }
+        }
+
+        private fun consRows(indexedItem: com.vbutrim.index.IndexedDocuments.Item): Stream<Array<String>> = when (indexedItem) {
+            is com.vbutrim.index.IndexedDocuments.File -> {
+                Stream.of(arrayOf(indexedItem.getPathAsString()))
+            }
+
+            is com.vbutrim.index.IndexedDocuments.Dir -> {
+                Stream.concat(
+                    Stream.of(arrayOf("[dir] " + indexedItem.getPathAsString())),
+                    indexedItem.nested.stream().flatMap { consRows(it) }
+                )
+            }
         }
     }
 

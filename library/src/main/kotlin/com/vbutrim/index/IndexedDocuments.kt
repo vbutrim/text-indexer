@@ -2,29 +2,43 @@ package com.vbutrim.index
 
 import com.vbutrim.file.FilesAndDirs
 import java.nio.file.Path
-import java.nio.file.Paths
 import java.time.Instant
 import java.util.function.Supplier
-import kotlin.io.path.listDirectoryEntries
 
 object IndexedDocuments {
-    private val root: Node = Node.notIndexedDir();
-    private val fileNodeById: MutableMap<Int, Node> = HashMap();
-    private var nextId: Int = 0;
+    private val root: Node.Dir = Node.Dir.notIndexed()
+    private val fileNodeById: MutableMap<Int, Node.File> = HashMap()
+    private var nextId: Int = 0
 
     fun add(dir: FilesAndDirs.Dir) {
-        val dirNode = computeDirNode(dir.getParent())
+        computeDirNode(dir.getParent())
+            .computeIfAbsent(dir.getName()) { Node.Dir.indexed() }
+            .let {
+                require(it is Node.Dir) {
+                    "not a dirNode"
+                }
 
-        dirNode.computeIfAbsent(dir.getName()) { Node.indexedDir() }
+                it.setIndexed()
+            }
     }
 
     fun add(document: Document.Tokenized): File {
-        val fileNode = computeDirNode(document.getDir())
-            .computeIfAbsent(document.getFileName()) { Node.file(File.of(nextId++, document)) }
+        val fileNode = computeDirNode(document.getDir()).computeIfAbsent(document.getFileName()) {
+            Node.File.cons(
+                    File.of(
+                        nextId++,
+                        document
+                    )
+                )
+            }
 
-        fileNodeById.computeIfAbsent(fileNode.asFileOrThrow().id) { fileNode }
+        require(fileNode is Node.File) {
+            "not a fileNode"
+        }
 
-        return fileNode.asFileOrThrow()
+        fileNodeById.computeIfAbsent(fileNode.getId()) { fileNode }
+
+        return fileNode.asFile()
     }
 
     fun getFileById(id: Int): File? {
@@ -32,115 +46,161 @@ object IndexedDocuments {
     }
 
     fun getFileByPath(path: Path): File? {
-        return getDirNodeOrNull(path)
-            ?.getOrNull(path.fileName.toString())
-            ?.asFile()
+        return getDirNodeOrNull(path)?.getOrNull(path.fileName.toString())?.let {
+                when (it) {
+                    is Node.File -> {
+                        it.asFile()
+                    }
+
+                    is Node.Dir -> {
+                        null
+                    }
+                }
+            }
     }
 
-    private fun getDirNodeOrNull(path: Path): Node? {
-        var current: Node? = root;
+    private fun getDirNodeOrNull(path: Path): Node.Dir? {
+        var current: Node? = root.getOrNull(path.root.toString())
 
         for (subDir in path.parent) {
-            current = current?.getOrNull(subDir.toString())
-
             if (current == null) {
-                break;
+                break
+            }
+
+            current = getSubDirIfDirNode(current, subDir)
+        }
+
+        return current?.let {
+            when (it) {
+                is Node.File -> {
+                    return null
+                }
+
+                is Node.Dir -> {
+                    return it
+                }
             }
         }
-
-        return current
     }
 
-    private fun computeDirNode(path: Path): Node {
-        var current = root.computeIfAbsent(path.root.toString(), Node::notIndexedDir)
+    private fun getSubDirIfDirNode(current: Node, subDir: Path): Node? {
+        return when (current) {
+            is Node.File -> {
+                return null
+            }
+
+            is Node.Dir -> {
+                current.getOrNull(subDir.toString())
+            }
+        }
+    }
+
+    private fun computeDirNode(path: Path): Node.Dir {
+        var current = root.computeIfAbsent(path.root.toString(), Node.Dir::notIndexed)
 
         for (subDir in path) {
-            current = current.computeIfAbsent(subDir.toString(), Node::notIndexedDir)
+            require(current is Node.Dir) {
+                "not a dirNode"
+            }
+            current = current.computeIfAbsent(subDir.toString(), Node.Dir::notIndexed)
         }
 
+        require(current is Node.Dir) {
+            "not a dirNode"
+        }
         return current
     }
 
     fun getAllIndexedPaths(): List<Item> {
-        return dfs(root, Paths.get(""))
+        return root.getSortedChildren().flatMap { dfs(it.value, Path.of(it.key)) }
     }
 
     private fun dfs(parent: Node, parentPath: Path): List<Item> {
-        if (parent.isDocument()) {
-            return listOf()
-        }
+        return when (parent) {
+            is Node.File -> {
+                return listOf(parent.asFile())
+            }
 
+            is Node.Dir -> {
+                dfsDirNode(parent, parentPath)
+            }
+        }
+    }
+
+    private fun dfsDirNode(parent: Node.Dir, parentPath: Path): List<Item> {
         val items = arrayListOf<Item>()
 
         for (child in parent.getSortedChildren()) {
             items.addAll(dfs(child.value, parentPath.resolve(child.key)))
         }
 
-        if (parent.isDir() && parent.isIndexed) {
+        if (parent.isIndexed()) {
             return listOf(Dir(parentPath, items))
         }
 
         return items
     }
 
-    class Node(
-        private val children: MutableMap<String, Node>,
-        private val file: File?,
-        internal val isIndexed: Boolean
-    ) {
-        init {
-            if (file != null) {
-                check(isIndexed)
+    private sealed class Node {
+
+        class File(private val file: IndexedDocuments.File) : Node() {
+            companion object {
+                fun cons(file: IndexedDocuments.File): File {
+                    return File(file)
+                }
+            }
+
+            fun getId(): Int {
+                return file.id
+            }
+
+            fun asFile(): IndexedDocuments.File {
+                return file
             }
         }
 
-        companion object {
-            fun notIndexedDir(): Node {
-                return Node(HashMap(), null, false)
+        class Dir(
+            private var isIndexed: Boolean
+        ) : Node() {
+
+            private val children: MutableMap<String, Node> = HashMap()
+
+            companion object {
+                fun notIndexed(): Dir {
+                    return Dir(false)
+                }
+
+                fun indexed(): Dir {
+                    return Dir(true)
+                }
             }
 
-            fun indexedDir(): Node {
-                return Node(HashMap(), null, true)
+            fun getOrNull(child: String): Node? {
+                return children[child]
             }
 
-            fun file(file: File): Node {
-                return Node(HashMap(), file, true)
+            fun computeIfAbsent(child: String, creationSupplier: Supplier<Node>): Node {
+                return children.computeIfAbsent(child) { creationSupplier.get() }
             }
-        }
 
-        fun isDocument(): Boolean {
-            return file != null
-        }
-
-        fun isDir(): Boolean {
-            return !isDocument()
-        }
-
-        fun asFile(): File? {
-            return file;
-        }
-
-        fun asFileOrThrow(): File {
-            return asFile()!!
-        }
-
-        fun getOrNull(child: String): Node? {
-            return children[child]
-        }
-
-        fun contains(child: String): Boolean {
-            return children.containsKey(child)
-        }
-
-        fun computeIfAbsent(child: String, creationSupplier: Supplier<Node>): Node {
-            require(!isDocument()) {
-                "impossible to add child for final document"
+            fun getSortedChildren(): Collection<MutableMap.MutableEntry<String, Node>> {
+                return children.entries.sortedBy { it.key }
             }
-            return children.computeIfAbsent(child) { creationSupplier.get() }
-        }
 
-        fun getSortedChildren(): Collection<MutableMap.MutableEntry<String, Node>> {
-            return children.entries.sortedBy { it.key }
+            fun setIndexed() {
+                if (isIndexed) {
+                    return
+                }
+                isIndexed = true
+            }
+
+            fun setNotIndexed() {
+                isIndexed = false
+            }
+
+            fun isIndexed(): Boolean {
+                return isIndexed
+            }
         }
     }
 
@@ -158,6 +218,5 @@ object IndexedDocuments {
         }
     }
 
-    class Dir(path: Path, val nested: List<Item>) : Item(path) {
-    }
+    class Dir(path: Path, val nested: List<Item>) : Item(path)
 }
