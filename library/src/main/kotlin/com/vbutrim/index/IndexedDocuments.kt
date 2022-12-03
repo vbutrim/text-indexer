@@ -2,8 +2,10 @@ package com.vbutrim.index
 
 import com.vbutrim.file.FilesAndDirs
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.time.Instant
 import java.util.function.Supplier
+import kotlin.io.path.listDirectoryEntries
 
 object IndexedDocuments {
     private val root: Node = Node.notIndexedDir();
@@ -17,7 +19,7 @@ object IndexedDocuments {
     }
 
     fun add(document: Document.Tokenized): File {
-        val fileNode = computeDirNode(document.getPath())
+        val fileNode = computeDirNode(document.getDir())
             .computeIfAbsent(document.getFileName()) { Node.file(File.of(nextId++, document)) }
 
         fileNodeById.computeIfAbsent(fileNode.asFileOrThrow().id) { fileNode }
@@ -50,21 +52,42 @@ object IndexedDocuments {
     }
 
     private fun computeDirNode(path: Path): Node {
-        var current = root;
+        var current = root.computeIfAbsent(path.root.toString(), Node::notIndexedDir)
 
-        for (subDir in path.parent) {
+        for (subDir in path) {
             current = current.computeIfAbsent(subDir.toString(), Node::notIndexedDir)
         }
 
         return current
     }
 
+    fun getAllIndexedPaths(): List<Item> {
+        return dfs(root, Paths.get(""))
+    }
+
+    private fun dfs(parent: Node, parentPath: Path): List<Item> {
+        if (parent.isDocument()) {
+            return listOf()
+        }
+
+        val items = arrayListOf<Item>()
+
+        for (child in parent.getSortedChildren()) {
+            items.addAll(dfs(child.value, parentPath.resolve(child.key)))
+        }
+
+        if (parent.isDir() && parent.isIndexed) {
+            return listOf(Dir(parentPath, items))
+        }
+
+        return items
+    }
 
     class Node(
         private val children: MutableMap<String, Node>,
         private val file: File?,
-        private val isIndexed: Boolean)
-    {
+        internal val isIndexed: Boolean
+    ) {
         init {
             if (file != null) {
                 check(isIndexed)
@@ -73,7 +96,7 @@ object IndexedDocuments {
 
         companion object {
             fun notIndexedDir(): Node {
-                return Node(HashMap(), null, true)
+                return Node(HashMap(), null, false)
             }
 
             fun indexedDir(): Node {
@@ -85,8 +108,12 @@ object IndexedDocuments {
             }
         }
 
-        private fun isDocument(): Boolean {
+        fun isDocument(): Boolean {
             return file != null
+        }
+
+        fun isDir(): Boolean {
+            return !isDocument()
         }
 
         fun asFile(): File? {
@@ -111,13 +138,26 @@ object IndexedDocuments {
             }
             return children.computeIfAbsent(child) { creationSupplier.get() }
         }
+
+        fun getSortedChildren(): Collection<MutableMap.MutableEntry<String, Node>> {
+            return children.entries.sortedBy { it.key }
+        }
     }
 
-    data class File(val id: Int, val path: Path, val modificationTime: Instant) {
+    sealed class Item(private val path: Path) {
+        fun getPathAsString(): String {
+            return path.toString()
+        }
+    }
+
+    data class File(val path: Path, val id: Int, val modificationTime: Instant) : Item(path) {
         companion object {
             fun of(id: Int, document: Document.Tokenized): File {
-                return File(id, document.getPath(), document.getModificationTime())
+                return File(document.getPath(), id, document.getModificationTime())
             }
         }
+    }
+
+    class Dir(path: Path, val nested: List<Item>) : Item(path) {
     }
 }

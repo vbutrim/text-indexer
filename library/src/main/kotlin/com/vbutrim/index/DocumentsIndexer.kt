@@ -18,6 +18,7 @@ object DocumentsIndexer {
         if (tokens.isEmpty()) {
             return listOf()
         }
+
         mutex.withLock {
             return tokens
                 .asSequence()
@@ -30,33 +31,33 @@ object DocumentsIndexer {
         }
     }
 
-    suspend fun updateWith(path: Path) {
-        updateWith(listOf(path))
-    }
-
     /**
      * @return all indexed paths
      */
-    suspend fun updateWith(paths: List<Path>): List<Path> {
-        mutex.withLock {
-            coroutineScope {
+    suspend fun updateWithAsync(paths: List<Path>): Deferred<List<IndexedDocuments.Item>> =
+        coroutineScope {
+            mutex.withLock {
+                async {
+                    if (paths.isEmpty()) {
+                        return@async IndexedDocuments.getAllIndexedPaths()
+                    }
 
-                val filesAndFolders = FileManager.splitOnFilesAndDirs(paths)
-                filesAndFolders.dirs.forEach { IndexedDocuments.add(it) }
+                    val filesAndFolders = FileManager.splitOnFilesAndDirs(paths)
+                    filesAndFolders.dirs.forEach { IndexedDocuments.add(it) }
 
-                val actor = indexerActor()
+                    val actor = indexerActor()
 
-                filesAndFolders
-                    .getAllFilesUnique()
-                    .map { consJobToIndexFileAndRun(actor, it) }
-                    .joinAll()
+                    filesAndFolders
+                        .getAllFilesUnique()
+                        .map { consJobToIndexFileAndRun(actor, it) }
+                        .joinAll()
 
-                actor.close()
+                    actor.close()
+
+                    return@async IndexedDocuments.getAllIndexedPaths()
+                }
             }
-
-            return paths
         }
-    }
 
     private fun CoroutineScope.consJobToIndexFileAndRun(
         indexerActor: SendChannel<IndexerMsg>,
@@ -80,6 +81,7 @@ object DocumentsIndexer {
                         Index.remove(existing.id)
                     }
                 }
+
                 is AddDocumentMsg -> {
                     val documentId = IndexedDocuments.add(msg.document).id
                     Index.updateWith(msg.document, documentId)

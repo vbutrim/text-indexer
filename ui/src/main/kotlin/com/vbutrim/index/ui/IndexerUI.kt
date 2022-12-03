@@ -104,14 +104,14 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
         return Collections.emptyList()
     }
 
-    override fun updateIndexedDocuments(documents: List<Path>) {
+    override fun updateIndexedDocuments(documents: List<com.vbutrim.index.IndexedDocuments.Item>) {
         indexedDocuments.updateWith(documents)
     }
 
-    override fun setActionsStatus(newSearchIsEnabled: Boolean, indexIsEnabled: Boolean) {
+    override fun setActionsStatus(newSearchIsEnabled: Boolean, newIndexingIsEnabled: Boolean) {
         searchButton.isEnabled = newSearchIsEnabled
-        addPathToIndexButton.isEnabled = indexIsEnabled
-        removePathFromIndexButton.isEnabled = indexIsEnabled
+        addPathToIndexButton.isEnabled = newIndexingIsEnabled
+        removePathFromIndexButton.isEnabled = newIndexingIsEnabled
     }
 
     override fun getTokensToSearch(): List<String> {
@@ -134,16 +134,14 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
             preferredSize = Dimension(200, 200)
         }
 
-        protected fun set(documents: List<String>) {
-            if (documents.isNotEmpty()) {
-                log.info("Updating result with ${documents.size} rows")
+        protected fun set(items: List<Array<*>>) {
+            if (items.isNotEmpty()) {
+                log.info("Updating result with ${items.size} rows")
             } else {
                 log.info("Clearing result")
             }
             tableModel.setDataVector(
-                documents
-                    .map { arrayOf(it) }
-                    .toTypedArray(),
+                items.toTypedArray(),
                 columns
             )
         }
@@ -151,13 +149,13 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
 
     private class SearchResults: NonEditableListElement(SEARCH_RESULTS_COLUMNS) {
         fun updateWith(documents: List<Path>) {
-            super.set(documents.map { it.toString() })
+            super.set(documents.map { arrayOf(it.toString()) })
         }
     }
 
     private class IndexedDocuments: NonEditableListElement(INDEXED_DOCUMENTS_COLUMNS) {
-        fun updateWith(documents: List<Path>) {
-            super.set(documents.map { it.toString() })
+        fun updateWith(documents: List<com.vbutrim.index.IndexedDocuments.Item>) {
+            super.set(documents.map { arrayOf(it.getPathAsString()) })
         }
     }
 

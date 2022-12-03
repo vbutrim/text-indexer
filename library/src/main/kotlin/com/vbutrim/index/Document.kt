@@ -19,6 +19,10 @@ data class Document(val path: Path, val modificationTime: Instant) {
             return document.path
         }
 
+        fun getDir(): Path {
+            return getPath().parent;
+        }
+
         fun getFileName(): String {
             return document.getFileName()
         }

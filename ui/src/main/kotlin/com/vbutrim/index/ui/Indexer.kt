@@ -1,5 +1,7 @@
 package com.vbutrim.index.ui
 
+import com.vbutrim.index.DocumentsIndexer
+import com.vbutrim.index.IndexedDocuments
 import kotlinx.coroutines.*
 import java.nio.file.Path
 import kotlin.coroutines.CoroutineContext
@@ -43,12 +45,12 @@ interface Indexer : CoroutineScope {
 
         val startTime = System.currentTimeMillis()
         launch(Dispatchers.Default) {
-            updateDocumentThatContainsTerms(tokens) { documents ->
-                withContext(Dispatchers.Main) {
-                    updateDocumentsThatContainTerms(documents)
-                    updateStatus(Status.SEARCH_COMPLETED, startTime)
-                    setActionsStatus(newSearchIsEnabled = true, newIndexingIsEnabled = true)
-                }
+            val documents = DocumentsIndexer.getDocumentThatContainTokenPaths(tokens)
+
+            withContext(Dispatchers.Main) {
+                updateDocumentsThatContainTerms(documents)
+                updateStatus(Status.SEARCH_COMPLETED, startTime)
+                setActionsStatus(newSearchIsEnabled = true, newIndexingIsEnabled = true)
             }
         }
     }
@@ -107,19 +109,20 @@ interface Indexer : CoroutineScope {
 
         val startTime = System.currentTimeMillis()
         launch(Dispatchers.Default) {
-            addDocumentsToIndex(pathsToIndex) { indexedDocuments ->
-                withContext(Dispatchers.Main) {
-                    updateIndexedDocuments(indexedDocuments)
-                    updateStatus(Status.INDEX_COMPLETED, startTime)
-                    setActionsStatus(newSearchIsEnabled = true, newIndexingIsEnabled = true)
-                }
+            val indexedDocuments = DocumentsIndexer.updateWithAsync(pathsToIndex)
+                .await()
+
+            withContext(Dispatchers.Main) {
+                updateIndexedDocuments(indexedDocuments)
+                updateStatus(Status.INDEX_COMPLETED, startTime)
+                setActionsStatus(newSearchIsEnabled = true, newIndexingIsEnabled = true)
             }
         }
     }
 
     fun getDocumentsToIndex(): List<Path>
 
-    fun updateIndexedDocuments(documents: List<Path>)
+    fun updateIndexedDocuments(documents: List<IndexedDocuments.Item>)
 
     private enum class Status {
         IDLE,
