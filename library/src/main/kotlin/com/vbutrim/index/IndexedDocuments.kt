@@ -23,15 +23,12 @@ object IndexedDocuments {
             }
     }
 
-    fun add(document: Document.Tokenized): File {
+    fun add(document: Document.Tokenized, isNestedWithDir: Boolean): File {
         val fileNode = computeDirNode(document.getDir()).computeIfAbsent(document.getFileName()) {
             Node.File.cons(
-                    File.of(
-                        nextId++,
-                        document
-                    )
-                )
-            }
+                File.of(nextId++, document, isNestedWithDir)
+            )
+        }
 
         require(fileNode is Node.File) {
             "not a fileNode"
@@ -48,16 +45,16 @@ object IndexedDocuments {
 
     fun getFileByPath(path: AbsolutePath): File? {
         return getDirNodeOrNull(path)?.getOrNull(path.getFileName().toString())?.let {
-                when (it) {
-                    is Node.File -> {
-                        it.asFile()
-                    }
+            when (it) {
+                is Node.File -> {
+                    it.asFile()
+                }
 
-                    is Node.Dir -> {
-                        null
-                    }
+                is Node.Dir -> {
+                    null
                 }
             }
+        }
     }
 
     private fun getDirNodeOrNull(path: AbsolutePath): Node.Dir? {
@@ -204,10 +201,15 @@ object IndexedDocuments {
         }
     }
 
-    data class File constructor(val path: AbsolutePath, val id: Int, val modificationTime: Instant) : Item(path) {
+    data class File constructor(
+        val path: AbsolutePath,
+        val id: Int,
+        val modificationTime: Instant,
+        val isNestedWithDir: Boolean
+    ) : Item(path) {
         companion object {
-            fun of(id: Int, document: Document.Tokenized): File {
-                return File(document.getPath(), id, document.getModificationTime())
+            fun of(id: Int, document: Document.Tokenized, isNestedWithDir: Boolean): File {
+                return File(document.getPath(), id, document.getModificationTime(), isNestedWithDir)
             }
         }
     }

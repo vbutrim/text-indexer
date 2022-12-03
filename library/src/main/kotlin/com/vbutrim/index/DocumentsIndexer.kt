@@ -24,8 +24,7 @@ object DocumentsIndexer {
                 .asSequence()
                 .map { Index.getDocumentThatContainTokenIds(it) }
                 .reduce { acc, it -> acc.intersect(it) }
-                .mapNotNull { IndexedDocuments.getFileById(it) }
-                .map { it.path }
+                .mapNotNull { IndexedDocuments.getFileById(it)?.path }
                 .sortedBy { it.asPath() }
                 .toList()
         }
@@ -67,7 +66,7 @@ object DocumentsIndexer {
 
         val document: Document.Tokenized = documentTokenizer.tokenize(DocumentReader.read(file))
 
-        indexerActor.send(IndexerMessage.AddDocument(document))
+        indexerActor.send(IndexerMessage.AddDocument(document, file.isNestedWithDir))
     }
 
     @OptIn(ObsoleteCoroutinesApi::class)
@@ -83,7 +82,7 @@ object DocumentsIndexer {
                 }
 
                 is IndexerMessage.AddDocument -> {
-                    val documentId = IndexedDocuments.add(msg.document).id
+                    val documentId = IndexedDocuments.add(msg.document, msg.fileIsNestedWithDir).id
                     Index.updateWith(msg.document, documentId)
                 }
             }
@@ -92,7 +91,7 @@ object DocumentsIndexer {
 
     private sealed class IndexerMessage {
         class RemoveDocumentIfPresent(val file: FilesAndDirs.File) : IndexerMessage()
-        class AddDocument(val document: Document.Tokenized) : IndexerMessage()
+        class AddDocument(val document: Document.Tokenized, val fileIsNestedWithDir: Boolean) : IndexerMessage()
     }
 
     /**

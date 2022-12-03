@@ -12,7 +12,7 @@ object FileManager {
             val file = File(path.getPathString())
 
             if (file.isFile) {
-                files.add(FilesAndDirs.File(file))
+                files.add(FilesAndDirs.File.independent(file))
                 continue
             }
 
@@ -34,7 +34,7 @@ object FileManager {
 
         return dir.walkTopDown()
             .filter { it.isFile }
-            .map { FilesAndDirs.File(it) }
+            .map { FilesAndDirs.File.nestedWithDir(it) }
             .toList()
     }
 }

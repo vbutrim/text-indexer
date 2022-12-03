@@ -4,7 +4,7 @@ import com.vbutrim.file.AbsolutePath
 import java.nio.file.Path
 import java.time.Instant
 
-data class Document(val path: AbsolutePath, val modificationTime: Instant) {
+data class Document(val path: AbsolutePath, private val modificationTime: Instant) {
     fun getFileName(): String {
         return path.getFileName().toString()
     }
@@ -15,7 +15,7 @@ data class Document(val path: AbsolutePath, val modificationTime: Instant) {
         }
     }
 
-    data class Tokenized(val document: Document, val tokens: List<String>) {
+    data class Tokenized(private val document: Document, val tokens: List<String>) {
         fun getPath(): AbsolutePath {
             return document.path
         }

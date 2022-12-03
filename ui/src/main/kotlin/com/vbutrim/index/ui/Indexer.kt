@@ -77,7 +77,7 @@ interface Indexer : CoroutineScope {
             Status.SEARCH_COMPLETED -> false
             Status.SEARCH_IN_PROGRESS -> true
             Status.INDEX_COMPLETED -> false
-            Status.INDEX_IN_PROGRESS -> false
+            Status.INDEX_IN_PROGRESS -> true
         }
 
         setStatus(text, iconRunning)

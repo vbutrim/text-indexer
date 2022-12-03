@@ -11,7 +11,20 @@ class FilesAndDirs(private val files: List<File>, val dirs: List<Dir>) {
             .distinctBy { it.getPath().getPathString() }
     }
 
-    class File(private val file: java.io.File) {
+    class File private constructor(
+        private val file: java.io.File,
+        val isNestedWithDir: Boolean)
+    {
+        companion object {
+            fun independent(file: java.io.File): File {
+                return File(file, false)
+            }
+
+            fun nestedWithDir(file: java.io.File): File {
+                return File(file, true)
+            }
+        }
+
         fun getPath(): AbsolutePath {
             return AbsolutePath.cons(file.toPath())
         }
