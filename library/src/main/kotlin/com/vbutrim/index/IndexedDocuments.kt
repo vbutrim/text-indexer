@@ -1,5 +1,6 @@
 package com.vbutrim.index
 
+import com.vbutrim.file.AbsolutePath
 import com.vbutrim.file.FilesAndDirs
 import java.nio.file.Path
 import java.time.Instant
@@ -45,8 +46,8 @@ object IndexedDocuments {
         return fileNodeById[id]?.asFile()
     }
 
-    fun getFileByPath(path: Path): File? {
-        return getDirNodeOrNull(path)?.getOrNull(path.fileName.toString())?.let {
+    fun getFileByPath(path: AbsolutePath): File? {
+        return getDirNodeOrNull(path)?.getOrNull(path.getFileName().toString())?.let {
                 when (it) {
                     is Node.File -> {
                         it.asFile()
@@ -59,10 +60,10 @@ object IndexedDocuments {
             }
     }
 
-    private fun getDirNodeOrNull(path: Path): Node.Dir? {
-        var current: Node? = root.getOrNull(path.root.toString())
+    private fun getDirNodeOrNull(path: AbsolutePath): Node.Dir? {
+        var current: Node? = root.getOrNull(path.getRoot().toString())
 
-        for (subDir in path.parent) {
+        for (subDir in path.getParent()) {
             if (current == null) {
                 break
             }
@@ -135,7 +136,7 @@ object IndexedDocuments {
         }
 
         if (parent.isIndexed()) {
-            return listOf(Dir(parentPath, items))
+            return listOf(Dir(AbsolutePath.cons(parentPath), items))
         }
 
         return items
@@ -204,13 +205,13 @@ object IndexedDocuments {
         }
     }
 
-    sealed class Item(private val path: Path) {
+    sealed class Item(private val path: AbsolutePath) {
         fun getPathAsString(): String {
             return path.toString()
         }
     }
 
-    data class File(val path: Path, val id: Int, val modificationTime: Instant) : Item(path) {
+    data class File constructor(val path: AbsolutePath, val id: Int, val modificationTime: Instant) : Item(path) {
         companion object {
             fun of(id: Int, document: Document.Tokenized): File {
                 return File(document.getPath(), id, document.getModificationTime())
@@ -218,5 +219,5 @@ object IndexedDocuments {
         }
     }
 
-    class Dir(path: Path, val nested: List<Item>) : Item(path)
+    class Dir(path: AbsolutePath, val nested: List<Item>) : Item(path)
 }

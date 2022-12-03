@@ -4,7 +4,7 @@ import java.util.*
 import kotlin.collections.HashMap
 
 object Index {
-    private val documentIdsByToken: MutableMap<String, MutableSet<Int>> = HashMap();
+    private val documentIdsByToken: MutableMap<String, MutableSet<Int>> = HashMap()
 
     fun getDocumentThatContainTokenIds(token: String): Set<Int> {
         return documentIdsByToken[token] ?: Collections.emptySet()
@@ -20,9 +20,9 @@ object Index {
             }
     }
 
-    fun remove(documentId: Int) {
+    fun remove(vararg documentIds: Int) {
         documentIdsByToken.values
-            .forEach { it.remove(documentId) }
+            .forEach { it.removeAll(documentIds.asList().toSet()) }
 
         documentIdsByToken.entries
             .removeIf { it.value.isEmpty() }

@@ -1,11 +1,12 @@
 package com.vbutrim.index
 
+import com.vbutrim.file.AbsolutePath
 import java.nio.file.Path
 import java.time.Instant
 
-data class Document(val path: Path, val modificationTime: Instant) {
+data class Document(val path: AbsolutePath, val modificationTime: Instant) {
     fun getFileName(): String {
-        return path.fileName.toString()
+        return path.getFileName().toString()
     }
 
     data class WithContent(val document: Document, val content: String) {
@@ -15,12 +16,12 @@ data class Document(val path: Path, val modificationTime: Instant) {
     }
 
     data class Tokenized(val document: Document, val tokens: List<String>) {
-        fun getPath(): Path {
+        fun getPath(): AbsolutePath {
             return document.path
         }
 
         fun getDir(): Path {
-            return getPath().parent;
+            return getPath().getParent()
         }
 
         fun getFileName(): String {

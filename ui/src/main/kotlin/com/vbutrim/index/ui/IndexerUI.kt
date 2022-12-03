@@ -1,5 +1,6 @@
 package com.vbutrim.index.ui
 
+import com.vbutrim.file.AbsolutePath
 import kotlinx.coroutines.Job
 import java.awt.Dimension
 import java.awt.GridBagConstraints
@@ -8,7 +9,6 @@ import java.awt.Insets
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
-import java.nio.file.Path
 import java.util.*
 import java.util.stream.Stream
 import javax.swing.*
@@ -60,7 +60,7 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
         init()
     }
 
-    override fun updateDocumentsThatContainTerms(documents: List<Path>) {
+    override fun updateDocumentsThatContainTerms(documents: List<AbsolutePath>) {
         searchResults.updateWith(documents)
     }
 
@@ -84,7 +84,7 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
         addPathToIndexButton.addActionListener { listener() }
     }
 
-    override fun getDocumentsToIndex(): List<Path> {
+    override fun getDocumentsToIndex(): List<AbsolutePath> {
         val fileChooser = JFileChooser()
 
         fileChooser.currentDirectory = File(System.getProperty("user.home"))
@@ -95,7 +95,7 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
 
         if (result == JFileChooser.APPROVE_OPTION) {
             val selectedFiles = fileChooser.selectedFiles
-                .map { it.toPath() }
+                .map { AbsolutePath.cons(it.toPath()) }
                 .toList()
             log.debug("Selected files: $selectedFiles")
             return selectedFiles
@@ -125,11 +125,13 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
 
     private abstract class NonEditableListElement(private val columns: Array<String>) {
         private val tableModel = NonEditableTableModel(columns)
+
         private class NonEditableTableModel(columns: Array<String>) : DefaultTableModel(columns, 0) {
             override fun isCellEditable(row: Int, column: Int): Boolean {
                 return false
             }
         }
+
         private val results = JTable(tableModel)
         val scroll = JScrollPane(results).apply {
             preferredSize = Dimension(200, 200)
@@ -148,13 +150,13 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
         }
     }
 
-    private class SearchResults: NonEditableListElement(SEARCH_RESULTS_COLUMNS) {
-        fun updateWith(documents: List<Path>) {
+    private class SearchResults : NonEditableListElement(SEARCH_RESULTS_COLUMNS) {
+        fun updateWith(documents: List<AbsolutePath>) {
             super.set(documents.map { arrayOf(it.toString()) })
         }
     }
 
-    private class IndexedDocuments: NonEditableListElement(INDEXED_DOCUMENTS_COLUMNS) {
+    private class IndexedDocuments : NonEditableListElement(INDEXED_DOCUMENTS_COLUMNS) {
         fun updateWith(indexedItems: List<com.vbutrim.index.IndexedDocuments.Item>) {
             super.set(consRows(indexedItems).toList())
         }
@@ -165,18 +167,19 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
                 .flatMap { consRows(it) }
         }
 
-        private fun consRows(indexedItem: com.vbutrim.index.IndexedDocuments.Item): Stream<Array<String>> = when (indexedItem) {
-            is com.vbutrim.index.IndexedDocuments.File -> {
-                Stream.of(arrayOf(indexedItem.getPathAsString()))
-            }
+        private fun consRows(indexedItem: com.vbutrim.index.IndexedDocuments.Item): Stream<Array<String>> =
+            when (indexedItem) {
+                is com.vbutrim.index.IndexedDocuments.File -> {
+                    Stream.of(arrayOf(indexedItem.getPathAsString()))
+                }
 
-            is com.vbutrim.index.IndexedDocuments.Dir -> {
-                Stream.concat(
-                    Stream.of(arrayOf("[dir] " + indexedItem.getPathAsString())),
-                    indexedItem.nested.stream().flatMap { consRows(it) }
-                )
+                is com.vbutrim.index.IndexedDocuments.Dir -> {
+                    Stream.concat(
+                        Stream.of(arrayOf("[dir] " + indexedItem.getPathAsString())),
+                        indexedItem.nested.stream().flatMap { consRows(it) }
+                    )
+                }
             }
-        }
     }
 
     private class StatusBar {

@@ -1,15 +1,15 @@
 package com.vbutrim.index.ui
 
+import com.vbutrim.file.AbsolutePath
 import com.vbutrim.index.DocumentsIndexer
 import com.vbutrim.index.IndexedDocuments
 import kotlinx.coroutines.*
-import java.nio.file.Path
 import kotlin.coroutines.CoroutineContext
 import kotlin.system.exitProcess
 
 interface Indexer : CoroutineScope {
 
-    val job: Job;
+    val job: Job
 
     override val coroutineContext: CoroutineContext
         get() = job + Dispatchers.Main
@@ -57,8 +57,8 @@ interface Indexer : CoroutineScope {
 
     private fun updateStatus(
         status: Status,
-        startTime: Long? = null)
-    {
+        startTime: Long? = null
+    ) {
         val time = if (startTime != null) {
             val time = System.currentTimeMillis() - startTime
             " in ${(time / 1000)}.${time % 1000 / 100} sec"
@@ -85,7 +85,7 @@ interface Indexer : CoroutineScope {
 
     fun getTokensToSearch(): List<String>
 
-    fun updateDocumentsThatContainTerms(documents: List<Path>)
+    fun updateDocumentsThatContainTerms(documents: List<AbsolutePath>)
 
     /**
      * close window
@@ -120,7 +120,7 @@ interface Indexer : CoroutineScope {
         }
     }
 
-    fun getDocumentsToIndex(): List<Path>
+    fun getDocumentsToIndex(): List<AbsolutePath>
 
     fun updateIndexedDocuments(documents: List<IndexedDocuments.Item>)
 

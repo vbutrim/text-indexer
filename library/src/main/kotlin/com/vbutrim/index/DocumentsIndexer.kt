@@ -1,5 +1,6 @@
 package com.vbutrim.index
 
+import com.vbutrim.file.AbsolutePath
 import com.vbutrim.file.FileManager
 import com.vbutrim.file.FilesAndDirs
 import kotlinx.coroutines.*
@@ -7,14 +8,13 @@ import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.actor
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.nio.file.Path
 import java.util.*
 
 object DocumentsIndexer {
     private val documentTokenizer: DocumentTokenizer = DocumentTokenizer.BasedOnWordSeparation()
-    private val mutex: Mutex = Mutex();
+    private val mutex: Mutex = Mutex()
 
-    suspend fun getDocumentThatContainTokenPaths(tokens: List<String>): List<Path> {
+    suspend fun getDocumentThatContainTokenPaths(tokens: List<String>): List<AbsolutePath> {
         if (tokens.isEmpty()) {
             return listOf()
         }
@@ -26,7 +26,7 @@ object DocumentsIndexer {
                 .reduce { acc, it -> acc.intersect(it) }
                 .mapNotNull { IndexedDocuments.getFileById(it) }
                 .map { it.path }
-                .sorted()
+                .sortedBy { it.asPath() }
                 .toList()
         }
     }
@@ -34,11 +34,11 @@ object DocumentsIndexer {
     /**
      * @return all indexed paths
      */
-    suspend fun updateWithAsync(paths: List<Path>): Deferred<List<IndexedDocuments.Item>> =
+    suspend fun updateWithAsync(paths: List<AbsolutePath>): Deferred<List<IndexedDocuments.Item>> =
         coroutineScope {
             mutex.withLock {
                 async {
-                    if (paths.isEmpty()) {
+                    if (!isActive || paths.isEmpty()) {
                         return@async IndexedDocuments.getAllIndexedPaths()
                     }
 
@@ -60,21 +60,21 @@ object DocumentsIndexer {
         }
 
     private fun CoroutineScope.consJobToIndexFileAndRun(
-        indexerActor: SendChannel<IndexerMsg>,
+        indexerActor: SendChannel<IndexerMessage>,
         file: FilesAndDirs.File
     ) = launch {
-        indexerActor.send(RemoveIfPresentDocumentMsg(file))
+        indexerActor.send(IndexerMessage.RemoveDocumentIfPresent(file))
 
         val document: Document.Tokenized = documentTokenizer.tokenize(DocumentReader.read(file))
 
-        indexerActor.send(AddDocumentMsg(document))
+        indexerActor.send(IndexerMessage.AddDocument(document))
     }
 
     @OptIn(ObsoleteCoroutinesApi::class)
-    private fun CoroutineScope.indexerActor() = actor<IndexerMsg> {
+    private fun CoroutineScope.indexerActor() = actor<IndexerMessage> {
         for (msg in channel) {
             when (msg) {
-                is RemoveIfPresentDocumentMsg -> {
+                is IndexerMessage.RemoveDocumentIfPresent -> {
                     val existing: IndexedDocuments.File? = IndexedDocuments.getFileByPath(msg.file.getPath())
 
                     if (existing != null) {
@@ -82,7 +82,7 @@ object DocumentsIndexer {
                     }
                 }
 
-                is AddDocumentMsg -> {
+                is IndexerMessage.AddDocument -> {
                     val documentId = IndexedDocuments.add(msg.document).id
                     Index.updateWith(msg.document, documentId)
                 }
@@ -90,7 +90,36 @@ object DocumentsIndexer {
         }
     }
 
-    sealed class IndexerMsg
-    class RemoveIfPresentDocumentMsg(val file: FilesAndDirs.File) : IndexerMsg()
-    class AddDocumentMsg(val document: Document.Tokenized) : IndexerMsg()
+    private sealed class IndexerMessage {
+        class RemoveDocumentIfPresent(val file: FilesAndDirs.File) : IndexerMessage()
+        class AddDocument(val document: Document.Tokenized) : IndexerMessage()
+    }
+
+    /**
+     * @return all indexed paths
+     */
+    suspend fun removeAsync(paths: List<AbsolutePath>): Deferred<List<IndexedDocuments.Item>> =
+        coroutineScope {
+            mutex.withLock {
+                async {
+                    if (!isActive || paths.isEmpty()) {
+                        return@async IndexedDocuments.getAllIndexedPaths()
+                    }
+
+                    val filesAndFolders = FileManager.splitOnFilesAndDirs(paths)
+                    filesAndFolders.dirs.forEach { IndexedDocuments.add(it) }
+
+                    val actor = indexerActor()
+
+                    filesAndFolders
+                        .getAllFilesUnique()
+                        .map { consJobToIndexFileAndRun(actor, it) }
+                        .joinAll()
+
+                    actor.close()
+
+                    return@async IndexedDocuments.getAllIndexedPaths()
+                }
+            }
+        }
 }
