@@ -28,12 +28,15 @@ internal sealed class Node {
         private val children: MutableMap<String, Node> = HashMap()
 
         companion object {
+            fun cons(isIndexed: Boolean): Dir {
+                return Dir(isIndexed)
+            }
             fun notIndexed(): Dir {
-                return Dir(false)
+                return cons(false)
             }
 
             fun indexed(): Dir {
-                return Dir(true)
+                return cons(true)
             }
         }
 
@@ -45,8 +48,12 @@ internal sealed class Node {
             return children.computeIfAbsent(child) { creationSupplier.get() }
         }
 
+        fun getChildren(): Set<MutableMap.MutableEntry<String, Node>> {
+            return children.entries
+        }
+
         fun getSortedChildren(): Collection<MutableMap.MutableEntry<String, Node>> {
-            return children.entries.sortedBy { it.key }
+            return getChildren().sortedBy { it.key }
         }
 
         fun setIndexed() {

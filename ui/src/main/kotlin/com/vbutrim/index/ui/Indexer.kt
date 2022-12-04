@@ -115,7 +115,11 @@ interface Indexer : CoroutineScope {
         val startTime = System.currentTimeMillis()
         launch(Dispatchers.Default) {
             val indexedDocuments = DocumentsIndexer
-                .updateWithAsync(pathsToIndex, showOnlySelectedByUserIndexedDocuments())
+                .updateWithAsync(pathsToIndex, showOnlySelectedByUserIndexedDocuments()) {
+                    withContext(Dispatchers.Main) {
+                        updateIndexedDocuments(it)
+                    }
+                }
                 .await()
 
             withContext(Dispatchers.Main) {

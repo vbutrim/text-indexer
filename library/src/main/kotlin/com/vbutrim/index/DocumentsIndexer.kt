@@ -9,6 +9,7 @@ import kotlinx.coroutines.channels.actor
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.Logger
+import java.util.*
 
 private val log: Logger = org.slf4j.LoggerFactory.getLogger(DocumentsIndexer::class.java)
 
@@ -51,7 +52,11 @@ object DocumentsIndexer {
      * @param userSelectionOnly defines if there is need to return all indexed paths or paths, which user actually selected
      * @return indexed paths considering userSelectionOnly flag
      */
-    suspend fun updateWithAsync(paths: List<AbsolutePath>, userSelectionOnly: Boolean): Deferred<List<IndexedItem>> =
+    suspend fun updateWithAsync(
+        paths: List<AbsolutePath>,
+        userSelectionOnly: Boolean,
+        updateResults: suspend (List<IndexedItem>) -> Unit
+    ): Deferred<List<IndexedItem>> =
         coroutineScope {
             mutex.withLock {
                 async {
@@ -67,7 +72,11 @@ object DocumentsIndexer {
 
                     filesAndDirs.dirs.forEach { IndexedDocuments.add(it) }
 
-                    val actor = indexerActor()
+                    val actor = indexerActor(
+                        userSelectionOnly,
+                        (getAllIndexedPaths(userSelectionOnly)).toMutableList(),
+                        updateResults
+                    )
 
                     filesAndDirs
                         .getAllFilesUnique()
@@ -111,7 +120,11 @@ object DocumentsIndexer {
     }
 
     @OptIn(ObsoleteCoroutinesApi::class)
-    private fun CoroutineScope.indexerActor() = actor<IndexerMessage> {
+    private fun CoroutineScope.indexerActor(
+        userSelectionOnly: Boolean,
+        indexedItems: MutableList<IndexedItem>,
+        updateResults: suspend (List<IndexedItem>) -> Unit
+    ) = actor<IndexerMessage> {
         for (msg in channel) {
             when (msg) {
                 is IndexerMessage.RemoveDocumentIfPresent -> {
@@ -123,8 +136,14 @@ object DocumentsIndexer {
                 }
 
                 is IndexerMessage.AddDocument -> {
-                    val documentId = IndexedDocuments.add(msg.document, msg.fileIsNestedWithDir).id
-                    Index.updateWith(msg.document, documentId)
+                    val indexedFile = IndexedDocuments.add(msg.document, msg.fileIsNestedWithDir)
+                    Index.updateWith(msg.document, indexedFile.id)
+
+                    if (!userSelectionOnly || !msg.fileIsNestedWithDir) {
+                        indexedItems.add(indexedFile)
+                        indexedItems.sortWith(Comparator.comparing { it.getPathAsString() })
+                        updateResults(indexedItems)
+                    }
                 }
             }
         }
@@ -132,7 +151,10 @@ object DocumentsIndexer {
 
     private sealed class IndexerMessage {
         class RemoveDocumentIfPresent(val file: FilesAndDirs.File) : IndexerMessage()
-        class AddDocument(val document: Document.Tokenized, val fileIsNestedWithDir: Boolean) : IndexerMessage()
+        class AddDocument(
+            val document: Document.Tokenized,
+            val fileIsNestedWithDir: Boolean
+        ) : IndexerMessage()
     }
 
     /**
@@ -149,14 +171,14 @@ object DocumentsIndexer {
                     val filesAndFolders = FileManager.splitOnFilesAndDirs(paths)
                     filesAndFolders.dirs.forEach { IndexedDocuments.add(it) }
 
-                    val actor = indexerActor()
+/*                    val actor = indexerActor(null, null, null)
 
                     filesAndFolders
                         .getAllFilesUnique()
                         .map { consJobToIndexFileAndRun(actor, it) }
                         .joinAll()
 
-                    actor.close()
+                    actor.close()*/
 
                     return@async getAllIndexedPaths(userSelectionOnly)
                 }

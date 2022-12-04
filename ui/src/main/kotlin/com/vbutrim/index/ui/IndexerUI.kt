@@ -124,6 +124,7 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
         searchButton.isEnabled = newSearchIsEnabled
         addPathToIndexButton.isEnabled = newIndexingIsEnabled
         removePathFromIndexButton.isEnabled = newIndexingIsEnabled
+        userSelectionOnlyCheckBox.isEnabled = newIndexingIsEnabled
     }
 
     override fun getTokensToSearch(): List<String> {

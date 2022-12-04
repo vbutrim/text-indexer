@@ -5,7 +5,7 @@ import com.vbutrim.file.FilesAndDirs
 import java.nio.file.Path
 
 internal object IndexedDocuments {
-    internal val root: Node.Dir = Node.Dir.notIndexed()
+    private val root: Node.Dir = Node.Dir.notIndexed()
     private val fileNodeById: MutableMap<Int, Node.File> = HashMap()
     private var nextId: Int = 0
 
@@ -18,15 +18,20 @@ internal object IndexedDocuments {
                 }
 
                 it.setIndexed()
+                DepthFirstSearch.markAllSubdirectoriesAsIndexed(it)
             }
     }
 
-    fun add(document: Document.Tokenized, isNestedWithDir: Boolean): IndexedItem.File {
-        val fileNode = computeDirNode(document.getDir()).computeIfAbsent(document.getFileName()) {
-            Node.File.cons(
-                IndexedItem.File.of(nextId++, document, isNestedWithDir)
-            )
-        }
+    fun add(
+        document: Document.Tokenized,
+        isNestedWithDir: Boolean
+    ): IndexedItem.File {
+        val fileNode = computeDirNode(document.getDir())
+            .computeIfAbsent(document.getFileName()) {
+                Node.File.cons(
+                    IndexedItem.File.of(nextId++, document, isNestedWithDir)
+                )
+            }
 
         require(fileNode is Node.File) {
             "not a fileNode"
@@ -94,11 +99,23 @@ internal object IndexedDocuments {
     private fun computeDirNode(path: Path): Node.Dir {
         var current = root.computeIfAbsent(path.root.toString(), Node.Dir::notIndexed)
 
+        var shouldMarkAsIndexed = when (current) {
+            is Node.File -> false
+            is Node.Dir -> current.isIndexed()
+        }
+
         for (subDir in path) {
             require(current is Node.Dir) {
                 "not a dirNode"
             }
-            current = current.computeIfAbsent(subDir.toString(), Node.Dir::notIndexed)
+
+            shouldMarkAsIndexed = shouldMarkAsIndexed || current.isIndexed()
+            current = current
+                .computeIfAbsent(subDir.toString()) { Node.Dir.cons(shouldMarkAsIndexed) }
+                .let {
+                    markAsIndexedIf(shouldMarkAsIndexed, it)
+                    it
+                }
         }
 
         require(current is Node.Dir) {
@@ -107,8 +124,17 @@ internal object IndexedDocuments {
         return current
     }
 
+    private fun markAsIndexedIf(shouldMarkAsIndexed: Boolean, current: Node) {
+        if (shouldMarkAsIndexed) {
+            when (current) {
+                is Node.File -> {}
+                is Node.Dir -> current.setIndexed()
+            }
+        }
+    }
+
     fun getAllIndexedPaths(userSelectionOnly: Boolean): List<IndexedItem> {
-        return DepthFirstSearch.getAllIndexedPaths(userSelectionOnly)
+        return DepthFirstSearch.getAllIndexedPaths(root, userSelectionOnly)
     }
 
     /**
@@ -119,6 +145,6 @@ internal object IndexedDocuments {
             return setOf()
         }
 
-        return DepthFirstSearch.removeAll(toRemove)
+        return DepthFirstSearch.removeAll(root, toRemove)
     }
 }

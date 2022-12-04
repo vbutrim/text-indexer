@@ -5,8 +5,11 @@ import java.nio.file.Path
 
 internal abstract class DepthFirstSearch {
     companion object {
-        fun getAllIndexedPaths(userSelectionOnly: Boolean): List<IndexedItem> {
-            return IndexedDocuments.root
+        /**
+         * @implNote start dfs with root's children to construct path correctly.
+         */
+        fun getAllIndexedPaths(root: Node.Dir, userSelectionOnly: Boolean): List<IndexedItem> {
+            return root
                 .getSortedChildren()
                 .flatMap { dfsOnGetAllIndexedPaths(it.value, Path.of(it.key), userSelectionOnly) }
         }
@@ -67,14 +70,14 @@ internal abstract class DepthFirstSearch {
             }
         }
 
-        fun removeAll(toRemove: ToRemove): Set<Int> {
+        fun removeAll(root: Node.Dir, toRemove: ToRemove): Set<Int> {
             if (toRemove.isEmpty()) {
                 return setOf()
             }
 
             val removedDocumentIds: MutableSet<Int> = hashSetOf()
 
-            IndexedDocuments.root
+            root
                 .getSortedChildren()
                 .forEach { dfsOnRemovePaths(it.value, Path.of(it.key), toRemove, false, removedDocumentIds) }
 
@@ -143,6 +146,21 @@ internal abstract class DepthFirstSearch {
             return removeForcibly
                     || toRemove.containsDirByAbsolutePath(path)
                     || !current.isIndexed() && !current.hasAnyChild()
+        }
+
+        fun markAllSubdirectoriesAsIndexed(current: Node.Dir) {
+            for (child in current.getChildren()) {
+                when (val childNode = child.value) {
+                    is Node.File -> {
+                        continue
+                    }
+
+                    is Node.Dir -> {
+                        childNode.setIndexed()
+                        markAllSubdirectoriesAsIndexed(childNode)
+                    }
+                }
+            }
         }
     }
 }
