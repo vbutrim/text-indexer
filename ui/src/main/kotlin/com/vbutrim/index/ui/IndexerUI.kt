@@ -37,6 +37,7 @@ class IndexerUI(override val documentsIndexer: DocumentsIndexer) : JFrame("TextI
     override val job = Job()
 
     init {
+        UIManager.put("FileChooser.readOnly", true)
         rootPane.contentPane = JPanel(GridBagLayout()).apply {
             addWide(JPanel().apply {
                 add(addPathsToIndexButton)
