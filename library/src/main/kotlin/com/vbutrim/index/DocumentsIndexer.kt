@@ -23,19 +23,27 @@ object DocumentsIndexer {
         }
     }
 
-    suspend fun getDocumentThatContainTokenPaths(tokens: List<String>): List<AbsolutePath> {
-        if (tokens.isEmpty()) {
-            return listOf()
-        }
+    suspend fun getDocumentThatContainTokenPathsAsync(tokens: List<String>): Deferred<List<AbsolutePath>> = coroutineScope {
+        async {
+            if (!isActive || tokens.isEmpty()) {
+                return@async listOf()
+            }
 
-        mutex.withLock {
-            return tokens
-                .asSequence()
-                .map { Index.getDocumentThatContainTokenIds(it) }
-                .reduce { acc, it -> acc.intersect(it) }
-                .mapNotNull { IndexedDocuments.getFileById(it)?.path }
-                .sortedBy { it.asPath() }
-                .toList()
+            mutex.withLock {
+                val documentIds = tokens
+                    .map {
+                        async {
+                            Index.getDocumentThatContainTokenIds(it)
+                        }
+                    }
+                    .awaitAll()
+
+                return@async documentIds
+                    .reduce { acc, it -> acc.intersect(it) }
+                    .mapNotNull { IndexedDocuments.getFileById(it)?.path }
+                    .sortedBy { it.asPath() }
+                    .toList()
+            }
         }
     }
 
@@ -99,7 +107,7 @@ object DocumentsIndexer {
 
         indexerActor.send(IndexerMessage.AddDocument(document, file.isNestedWithDir))
 
-        log.debug("File handled: " + file.getPath())
+        log.debug("File added: " + file.getPath())
     }
 
     @OptIn(ObsoleteCoroutinesApi::class)

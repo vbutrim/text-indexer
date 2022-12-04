@@ -48,7 +48,9 @@ interface Indexer : CoroutineScope {
 
         val startTime = System.currentTimeMillis()
         launch(Dispatchers.Default) {
-            val documents = DocumentsIndexer.getDocumentThatContainTokenPaths(tokens)
+            val documents = DocumentsIndexer
+                .getDocumentThatContainTokenPathsAsync(tokens)
+                .await()
 
             withContext(Dispatchers.Main) {
                 updateDocumentsThatContainTerms(documents)
