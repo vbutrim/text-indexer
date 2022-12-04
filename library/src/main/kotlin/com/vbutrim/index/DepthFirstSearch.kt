@@ -8,20 +8,20 @@ internal abstract class DepthFirstSearch {
         /**
          * @implNote start dfs with root's children to construct path correctly.
          */
-        fun getAllIndexedPaths(root: Node.Dir, notNestedWithDirOnly: Boolean): List<IndexedItem> {
+        fun getAllIndexedPaths(root: Node.Dir, indexedItemsFilter: IndexedItemsFilter): List<IndexedItem> {
             return root
                 .getSortedChildren()
-                .flatMap { dfsOnGetAllIndexedPaths(it.value, Path.of(it.key), notNestedWithDirOnly) }
+                .flatMap { dfsOnGetAllIndexedPaths(it.value, Path.of(it.key), indexedItemsFilter) }
         }
 
         private fun dfsOnGetAllIndexedPaths(
             current: Node,
             path: Path,
-            notNestedWithDirOnly: Boolean
+            indexedItemsFilter: IndexedItemsFilter
         ): List<IndexedItem> {
             return when (current) {
                 is Node.File -> {
-                    return if (!notNestedWithDirOnly || !current.isNestedWithDir()) {
+                    return if (indexedItemsFilter.isAny() || !current.isNestedWithDir()) {
                         listOf(current.asFile())
                     } else {
                         listOf()
@@ -29,19 +29,19 @@ internal abstract class DepthFirstSearch {
                 }
 
                 is Node.Dir -> {
-                    dfsOnGetAllIndexedPaths(current, path, notNestedWithDirOnly)
+                    dfsOnGetAllIndexedPaths(current, path, indexedItemsFilter)
                 }
             }
         }
 
-        private fun dfsOnGetAllIndexedPaths(current: Node.Dir, path: Path, notNestedWithDirOnly: Boolean): List<IndexedItem> {
+        private fun dfsOnGetAllIndexedPaths(current: Node.Dir, path: Path, indexedItemsFilter: IndexedItemsFilter): List<IndexedItem> {
             val items = arrayListOf<IndexedItem>()
 
             for (child in current.getSortedChildren()) {
-                items.addAll(dfsOnGetAllIndexedPaths(child.value, path.resolve(child.key), notNestedWithDirOnly))
+                items.addAll(dfsOnGetAllIndexedPaths(child.value, path.resolve(child.key), indexedItemsFilter))
             }
 
-            if (current.isIndexed() && (!notNestedWithDirOnly || !current.isNestedWithDir())) {
+            if (current.isIndexed() && (indexedItemsFilter.isAny() || !current.isNestedWithDir())) {
                 return listOf(IndexedItem.Dir(AbsolutePath.cons(path), items))
             }
 

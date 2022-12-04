@@ -140,8 +140,8 @@ class IndexedDocuments {
         }
     }
 
-    fun getAllIndexedItems(notNestedWithDirOnly: Boolean): List<IndexedItem> {
-        return DepthFirstSearch.getAllIndexedPaths(root, notNestedWithDirOnly)
+    fun getAllIndexedItems(indexedItemsFilter: IndexedItemsFilter): List<IndexedItem> {
+        return DepthFirstSearch.getAllIndexedPaths(root, indexedItemsFilter)
     }
 
     /**

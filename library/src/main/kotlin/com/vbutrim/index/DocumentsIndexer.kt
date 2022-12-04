@@ -20,13 +20,9 @@ class DocumentsIndexer(
     private val index = Index()
     private val mutex: Mutex = Mutex()
 
-    /**
-     * @param notNestedWithDirOnly defines if there is need to return all indexed paths or paths, which user actually selected
-     * @return indexed paths considering notNestedWithDirOnly flag
-     */
-    suspend fun getAllIndexedItems(notNestedWithDirOnly: Boolean): List<IndexedItem> {
+    suspend fun getAllIndexedItems(indexedItemsFilter: IndexedItemsFilter): List<IndexedItem> {
         mutex.withLock {
-            return indexedDocuments.getAllIndexedItems(notNestedWithDirOnly)
+            return indexedDocuments.getAllIndexedItems(indexedItemsFilter)
         }
     }
 
@@ -56,14 +52,14 @@ class DocumentsIndexer(
 
     suspend fun updateWithAsync(
         paths: List<AbsolutePath>,
-        notNestedWithDirOnly: Boolean,
+        indexedItemsFilter: IndexedItemsFilter,
         updateResults: suspend (List<IndexedItem>) -> Unit
     ): Deferred<List<IndexedItem>> =
         coroutineScope {
             mutex.withLock {
                 async {
                     if (!isActive || paths.isEmpty()) {
-                        return@async getAllIndexedItems(notNestedWithDirOnly)
+                        return@async getAllIndexedItems(indexedItemsFilter)
                     }
 
                     logPathsToIndex(paths)
@@ -75,8 +71,8 @@ class DocumentsIndexer(
                     filesAndDirs.dirs.forEach { indexedDocuments.add(it) }
 
                     val actor = indexerActor(
-                        notNestedWithDirOnly,
-                        (getAllIndexedItems(notNestedWithDirOnly)).toMutableList(),
+                        indexedItemsFilter,
+                        (getAllIndexedItems(indexedItemsFilter)).toMutableList(),
                         updateResults
                     )
 
@@ -126,7 +122,7 @@ class DocumentsIndexer(
 
     @OptIn(ObsoleteCoroutinesApi::class)
     private fun CoroutineScope.indexerActor(
-        notNestedWithDirOnly: Boolean,
+        indexedItemsFilter: IndexedItemsFilter,
         indexedItems: MutableList<IndexedItem>,
         updateResults: suspend (List<IndexedItem>) -> Unit
     ) = actor<IndexerMessage> {
@@ -144,7 +140,7 @@ class DocumentsIndexer(
                     val indexedFile = indexedDocuments.add(msg.document, msg.fileIsNestedWithDir)
                     index.updateWith(msg.document, indexedFile.id)
 
-                    if (!notNestedWithDirOnly || !msg.fileIsNestedWithDir) {
+                    if (indexedItemsFilter.isAny() || !msg.fileIsNestedWithDir) {
                         indexedItems.add(indexedFile)
                         indexedItems.sortWith(Comparator.comparing { it.getPathAsString() })
                         updateResults(indexedItems)
@@ -152,7 +148,7 @@ class DocumentsIndexer(
                 }
 
                 is IndexerMessage.GetAllIndexedDocuments -> {
-                    msg.response.complete(indexedDocuments.getAllIndexedItems(notNestedWithDirOnly))
+                    msg.response.complete(indexedDocuments.getAllIndexedItems(indexedItemsFilter))
                 }
             }
         }
@@ -170,26 +166,36 @@ class DocumentsIndexer(
     suspend fun removeAsync(
         filesToRemove: List<AbsolutePath>,
         dirsToRemove: List<AbsolutePath>,
-        notNestedWithDirOnly: Boolean
+        indexedItemsFilter: IndexedItemsFilter
     ): Deferred<List<IndexedItem>> =
         coroutineScope {
             mutex.withLock {
                 async {
                     if (!isActive || (filesToRemove.isEmpty() && dirsToRemove.isEmpty())) {
-                        return@async getAllIndexedItems(notNestedWithDirOnly)
+                        return@async getAllIndexedItems(indexedItemsFilter)
                     }
 
                     val toRemove = FileManager.defineItemsToRemove(
                         filesToRemove,
                         dirsToRemove,
-                        getAllIndexedItems(false)
+                        getAllIndexedItems(IndexedItemsFilter.ANY)
                     )
 
                     val removedDocumentIds = indexedDocuments.remove(toRemove)
                     index.remove(removedDocumentIds)
 
-                    return@async getAllIndexedItems(notNestedWithDirOnly)
+                    return@async getAllIndexedItems(indexedItemsFilter)
                 }
             }
         }
+
+/*    suspend fun syncIndexedItemsAsync(notNestedWithDirOnly: Boolean): Deferred<List<IndexedItem>> = coroutineScope {
+        mutex.withLock {
+            async {
+                if (!isActive) {
+                    return@async getAllIndexedItems()
+                }
+            }
+        }
+    }*/
 }

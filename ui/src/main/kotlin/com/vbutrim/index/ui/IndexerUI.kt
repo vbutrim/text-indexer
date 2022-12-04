@@ -3,6 +3,7 @@ package com.vbutrim.index.ui
 import com.vbutrim.file.AbsolutePath
 import com.vbutrim.index.DocumentsIndexer
 import com.vbutrim.index.IndexedItem
+import com.vbutrim.index.IndexedItemsFilter
 import kotlinx.coroutines.Job
 import java.awt.Dimension
 import java.awt.GridBagConstraints
@@ -119,8 +120,12 @@ class IndexerUI(override val documentsIndexer: DocumentsIndexer) : JFrame("TextI
         userSelectionOnlyCheckBox.addActionListener { listener() }
     }
 
-    override fun showOnlySelectedByUserIndexedDocuments(): Boolean {
-        return userSelectionOnlyCheckBox.isSelected
+    override fun indexedItemsFilter(): IndexedItemsFilter {
+        return if (userSelectionOnlyCheckBox.isSelected) {
+            IndexedItemsFilter.MARKED_AS_SOURCES_ONLY
+        } else {
+            IndexedItemsFilter.ANY
+        }
     }
 
     override fun addRemoveDocumentsToIndexListener(listener: () -> Unit) {

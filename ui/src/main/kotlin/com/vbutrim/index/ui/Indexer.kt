@@ -3,6 +3,7 @@ package com.vbutrim.index.ui
 import com.vbutrim.file.AbsolutePath
 import com.vbutrim.index.DocumentsIndexer
 import com.vbutrim.index.IndexedItem
+import com.vbutrim.index.IndexedItemsFilter
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
 import kotlin.system.exitProcess
@@ -130,7 +131,7 @@ interface Indexer : CoroutineScope {
         val startTime = System.currentTimeMillis()
         launch(Dispatchers.Default) {
             val indexedDocuments = documentsIndexer
-                .updateWithAsync(pathsToIndex, showOnlySelectedByUserIndexedDocuments()) {
+                .updateWithAsync(pathsToIndex, indexedItemsFilter()) {
                     withContext(Dispatchers.Main) {
                         updateIndexedDocuments(it)
                     }
@@ -155,7 +156,7 @@ interface Indexer : CoroutineScope {
         setActionsStatus(newSearchIsEnabled = false, newIndexingIsEnabled = false)
 
         launch(Dispatchers.Default) {
-            val indexedDocuments = documentsIndexer.getAllIndexedItems(showOnlySelectedByUserIndexedDocuments())
+            val indexedDocuments = documentsIndexer.getAllIndexedItems(indexedItemsFilter())
 
             withContext(Dispatchers.Main) {
                 updateIndexedDocuments(indexedDocuments)
@@ -164,7 +165,7 @@ interface Indexer : CoroutineScope {
         }
     }
 
-    fun showOnlySelectedByUserIndexedDocuments(): Boolean
+    fun indexedItemsFilter(): IndexedItemsFilter
 
     fun addRemoveDocumentsToIndexListener(listener: () -> Unit)
 
@@ -182,7 +183,7 @@ interface Indexer : CoroutineScope {
 
         launch(Dispatchers.Default) {
             val indexedDocuments = documentsIndexer
-                .removeAsync(toRemove.files, toRemove.dirs, showOnlySelectedByUserIndexedDocuments())
+                .removeAsync(toRemove.files, toRemove.dirs, indexedItemsFilter())
                 .await()
 
             withContext(Dispatchers.Main) {
