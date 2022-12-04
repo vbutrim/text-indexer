@@ -4,7 +4,7 @@ import com.vbutrim.file.AbsolutePath
 import com.vbutrim.file.FilesAndDirs
 import java.nio.file.Path
 
-internal object IndexedDocuments {
+class IndexedDocuments {
     private val root: Node.Dir = Node.Dir.notIndexed()
     private val fileNodeById: MutableMap<Int, Node.File> = HashMap()
     private var nextId: Int = 0

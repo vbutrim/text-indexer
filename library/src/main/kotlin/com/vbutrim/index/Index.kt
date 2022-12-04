@@ -2,7 +2,7 @@ package com.vbutrim.index
 
 import java.util.*
 
-internal object Index {
+class Index {
     private val documentIdsByToken: MutableMap<String, MutableSet<Int>> = HashMap()
 
     fun getDocumentThatContainTokenIds(token: String): Set<Int> {

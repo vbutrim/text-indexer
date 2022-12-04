@@ -13,8 +13,11 @@ import java.util.*
 
 private val log: Logger = org.slf4j.LoggerFactory.getLogger(DocumentsIndexer::class.java)
 
-object DocumentsIndexer {
-    private val documentTokenizer: DocumentTokenizer = DocumentTokenizer.BasedOnWordSeparation()
+class DocumentsIndexer(
+    private val documentTokenizer: DocumentTokenizer)
+{
+    private val indexedDocuments = IndexedDocuments()
+    private val index = Index()
     private val mutex: Mutex = Mutex()
 
     /**
@@ -23,7 +26,7 @@ object DocumentsIndexer {
      */
     suspend fun getAllIndexedItems(notNestedWithDirOnly: Boolean): List<IndexedItem> {
         mutex.withLock {
-            return IndexedDocuments.getAllIndexedItems(notNestedWithDirOnly)
+            return indexedDocuments.getAllIndexedItems(notNestedWithDirOnly)
         }
     }
 
@@ -37,14 +40,14 @@ object DocumentsIndexer {
                 val documentIds = tokens
                     .map {
                         async {
-                            Index.getDocumentThatContainTokenIds(it)
+                            index.getDocumentThatContainTokenIds(it)
                         }
                     }
                     .awaitAll()
 
                 return@async documentIds
                     .reduce { acc, it -> acc.intersect(it) }
-                    .mapNotNull { IndexedDocuments.getFileById(it)?.path }
+                    .mapNotNull { indexedDocuments.getFileById(it)?.path }
                     .sortedBy { it.asPath() }
                     .toList()
             }
@@ -69,7 +72,7 @@ object DocumentsIndexer {
 
                     logSplitPaths(filesAndDirs)
 
-                    filesAndDirs.dirs.forEach { IndexedDocuments.add(it) }
+                    filesAndDirs.dirs.forEach { indexedDocuments.add(it) }
 
                     val actor = indexerActor(
                         notNestedWithDirOnly,
@@ -82,9 +85,12 @@ object DocumentsIndexer {
                         .map { consJobToIndexFileAndRun(actor, it) }
                         .joinAll()
 
+                    val indexedItemsD = CompletableDeferred<List<IndexedItem>>()
+                    actor.send(IndexerMessage.GetAllIndexedDocuments(indexedItemsD))
+                    val indexedItems = indexedItemsD.await()
                     actor.close()
 
-                    return@async getAllIndexedItems(notNestedWithDirOnly)
+                    return@async indexedItems
                 }
             }
         }
@@ -127,22 +133,26 @@ object DocumentsIndexer {
         for (msg in channel) {
             when (msg) {
                 is IndexerMessage.RemoveDocumentIfPresent -> {
-                    val existing: IndexedItem.File? = IndexedDocuments.getFileByPath(msg.file.getPath())
+                    val existing: IndexedItem.File? = indexedDocuments.getFileByPath(msg.file.getPath())
 
                     if (existing != null) {
-                        Index.remove(existing.id)
+                        index.remove(existing.id)
                     }
                 }
 
                 is IndexerMessage.AddDocument -> {
-                    val indexedFile = IndexedDocuments.add(msg.document, msg.fileIsNestedWithDir)
-                    Index.updateWith(msg.document, indexedFile.id)
+                    val indexedFile = indexedDocuments.add(msg.document, msg.fileIsNestedWithDir)
+                    index.updateWith(msg.document, indexedFile.id)
 
                     if (!notNestedWithDirOnly || !msg.fileIsNestedWithDir) {
                         indexedItems.add(indexedFile)
                         indexedItems.sortWith(Comparator.comparing { it.getPathAsString() })
                         updateResults(indexedItems)
                     }
+                }
+
+                is IndexerMessage.GetAllIndexedDocuments -> {
+                    msg.response.complete(indexedDocuments.getAllIndexedItems(notNestedWithDirOnly))
                 }
             }
         }
@@ -154,6 +164,7 @@ object DocumentsIndexer {
             val document: Document.Tokenized,
             val fileIsNestedWithDir: Boolean
         ) : IndexerMessage()
+        class GetAllIndexedDocuments(val response: CompletableDeferred<List<IndexedItem>>) : IndexerMessage()
     }
 
     suspend fun removeAsync(
@@ -174,8 +185,8 @@ object DocumentsIndexer {
                         getAllIndexedItems(false)
                     )
 
-                    val removedDocumentIds = IndexedDocuments.remove(toRemove)
-                    Index.remove(removedDocumentIds)
+                    val removedDocumentIds = indexedDocuments.remove(toRemove)
+                    index.remove(removedDocumentIds)
 
                     return@async getAllIndexedItems(notNestedWithDirOnly)
                 }

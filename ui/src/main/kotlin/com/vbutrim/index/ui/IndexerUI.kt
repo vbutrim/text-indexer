@@ -1,6 +1,7 @@
 package com.vbutrim.index.ui
 
 import com.vbutrim.file.AbsolutePath
+import com.vbutrim.index.DocumentsIndexer
 import com.vbutrim.index.IndexedItem
 import kotlinx.coroutines.Job
 import java.awt.Dimension
@@ -10,6 +11,7 @@ import java.awt.Insets
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
+import java.nio.file.Path
 import java.util.*
 import java.util.stream.Stream
 import javax.swing.*
@@ -19,13 +21,13 @@ private val INSETS = Insets(3, 10, 3, 10)
 private val SEARCH_RESULTS_COLUMNS = arrayOf("Documents that contain tokens")
 private val INDEXED_DOCUMENTS_COLUMNS = arrayOf("Indexed documents")
 
-class IndexerUI : JFrame("TextIndexer"), Indexer {
+class IndexerUI(override val documentsIndexer: DocumentsIndexer) : JFrame("TextIndexer"), Indexer {
 
     private val tokensInput = JTextField(20).apply {
         toolTipText = "comma separated"
     }
-    private val addPathToIndexButton = JButton("Add paths")
-    private val removePathFromIndexButton = JButton("Remove paths")
+    private val addPathsToIndexButton = JButton("Add paths")
+    private val removePathsFromIndexButton = JButton("Remove paths")
     private val indexedDocuments = IndexedDocuments()
     private val userSelectionOnlyCheckBox = JCheckBox("user selection only")
     private val searchButton = JButton("Search documents")
@@ -37,8 +39,8 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
     init {
         rootPane.contentPane = JPanel(GridBagLayout()).apply {
             addWide(JPanel().apply {
-                add(addPathToIndexButton)
-                add(removePathFromIndexButton)
+                add(addPathsToIndexButton)
+                add(removePathsFromIndexButton)
             })
             addWide(indexedDocuments.scroll) {
                 weightx = 1.0
@@ -84,7 +86,7 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
     }
 
     override fun addGetDocumentsToIndexListener(listener: () -> Unit) {
-        addPathToIndexButton.addActionListener { listener() }
+        addPathsToIndexButton.addActionListener { listener() }
     }
 
     override fun getDocumentsToIndex(): List<AbsolutePath> {
@@ -120,10 +122,19 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
         return userSelectionOnlyCheckBox.isSelected
     }
 
+    override fun addRemoveDocumentsToIndexListener(listener: () -> Unit) {
+        removePathsFromIndexButton.addActionListener { listener() }
+    }
+
+    override fun getDocumentsToIndexToRemove(): Indexer.ToRemove {
+        val toRemove = indexedDocuments.getSelectedPaths()
+        return Indexer.ToRemove(toRemove.first, toRemove.second)
+    }
+
     override fun setActionsStatus(newSearchIsEnabled: Boolean, newIndexingIsEnabled: Boolean) {
         searchButton.isEnabled = newSearchIsEnabled
-        addPathToIndexButton.isEnabled = newIndexingIsEnabled
-        removePathFromIndexButton.isEnabled = newIndexingIsEnabled
+        addPathsToIndexButton.isEnabled = newIndexingIsEnabled
+        removePathsFromIndexButton.isEnabled = newIndexingIsEnabled
         userSelectionOnlyCheckBox.isEnabled = newIndexingIsEnabled
     }
 
@@ -160,6 +171,11 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
                 columns
             )
         }
+
+        protected fun getSelectedItems(@Suppress("SameParameterValue") column: Int): List<String> {
+            return results.selectedRows
+                .map {row -> results.getValueAt(row, column).toString() }
+        }
     }
 
     private class SearchResults : NonEditableListElement(SEARCH_RESULTS_COLUMNS) {
@@ -169,6 +185,9 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
     }
 
     private class IndexedDocuments : NonEditableListElement(INDEXED_DOCUMENTS_COLUMNS) {
+        companion object {
+            private const val DIR_PREFIX: String = "[dir] "
+        }
         fun updateWith(indexedItems: List<IndexedItem>) {
             super.set(consRows(indexedItems).toList())
         }
@@ -187,11 +206,27 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
 
                 is IndexedItem.Dir -> {
                     Stream.concat(
-                        Stream.of(arrayOf("[dir] " + indexedItem.getPathAsString())),
+                        Stream.of(arrayOf(DIR_PREFIX + indexedItem.getPathAsString())),
                         indexedItem.nested.stream().flatMap { consRows(it) }
                     )
                 }
             }
+
+        /**
+         * @return selected files and dirs
+         */
+        @Suppress("SameParameterValue")
+        fun getSelectedPaths(): Pair<List<AbsolutePath>, List<AbsolutePath>> {
+            val selectedRows = getSelectedItems(0)
+            val dirsAndFiles = selectedRows
+                .map { Pair(AbsolutePath.cons(Path.of(it.removePrefix(DIR_PREFIX))), it.startsWith(DIR_PREFIX)) }
+                .partition { it.second }
+
+            return Pair(
+                dirsAndFiles.second.map { it.first },
+                dirsAndFiles.first.map { it.first }
+            )
+        }
     }
 
     private class StatusBar {

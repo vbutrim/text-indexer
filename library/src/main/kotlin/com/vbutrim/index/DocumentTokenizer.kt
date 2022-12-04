@@ -3,7 +3,7 @@ package com.vbutrim.index
 import java.util.*
 import java.util.stream.Stream
 
-internal interface DocumentTokenizer {
+interface DocumentTokenizer {
     fun collectTokens(content: String): Stream<String>
 
     fun tokenize(document: Document.WithContent): Document.Tokenized {

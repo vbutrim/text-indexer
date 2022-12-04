@@ -10,6 +10,7 @@ import kotlin.system.exitProcess
 interface Indexer : CoroutineScope {
 
     val job: Job
+    val documentsIndexer: DocumentsIndexer
 
     override val coroutineContext: CoroutineContext
         get() = job + Dispatchers.Main
@@ -20,10 +21,13 @@ interface Indexer : CoroutineScope {
             exitProcess(0)
         }
         addSearchListener {
-            updateDocumentsThatContainTerms()
+            updateDocumentsThatContainTerms(true)
         }
         addGetDocumentsToIndexListener {
             addDocumentsToIndex()
+        }
+        addRemoveDocumentsToIndexListener {
+            removeDocumentsToIndex()
         }
         addUserSelectionOnlyListener {
             updateIndexedDocuments()
@@ -39,22 +43,33 @@ interface Indexer : CoroutineScope {
      */
     fun addSearchListener(listener: () -> Unit)
 
-    fun updateDocumentsThatContainTerms() {
+    fun updateDocumentsThatContainTerms(updateStatus: Boolean) {
         val tokens = getTokensToSearch()
+
+        if (tokens.isEmpty()) {
+            updateDocumentsThatContainTerms(listOf())
+            return
+        }
 
         setActionsStatus(newSearchIsEnabled = false, newIndexingIsEnabled = false)
         updateDocumentsThatContainTerms(listOf())
-        updateStatus(Status.SEARCH_IN_PROGRESS)
+        if (updateStatus) {
+            updateStatus(Status.SEARCH_IN_PROGRESS)
+        }
 
         val startTime = System.currentTimeMillis()
         launch(Dispatchers.Default) {
-            val documents = DocumentsIndexer
+            val documents = documentsIndexer
                 .getDocumentThatContainTokenPathsAsync(tokens)
                 .await()
 
             withContext(Dispatchers.Main) {
-                updateDocumentsThatContainTerms(documents)
-                updateStatus(Status.SEARCH_COMPLETED, startTime)
+                if (documents.isNotEmpty()) {
+                    updateDocumentsThatContainTerms(documents)
+                }
+                if (updateStatus) {
+                    updateStatus(Status.SEARCH_COMPLETED, startTime)
+                }
                 setActionsStatus(newSearchIsEnabled = true, newIndexingIsEnabled = true)
             }
         }
@@ -114,7 +129,7 @@ interface Indexer : CoroutineScope {
 
         val startTime = System.currentTimeMillis()
         launch(Dispatchers.Default) {
-            val indexedDocuments = DocumentsIndexer
+            val indexedDocuments = documentsIndexer
                 .updateWithAsync(pathsToIndex, showOnlySelectedByUserIndexedDocuments()) {
                     withContext(Dispatchers.Main) {
                         updateIndexedDocuments(it)
@@ -140,7 +155,7 @@ interface Indexer : CoroutineScope {
         setActionsStatus(newSearchIsEnabled = false, newIndexingIsEnabled = false)
 
         launch(Dispatchers.Default) {
-            val indexedDocuments = DocumentsIndexer.getAllIndexedItems(showOnlySelectedByUserIndexedDocuments())
+            val indexedDocuments = documentsIndexer.getAllIndexedItems(showOnlySelectedByUserIndexedDocuments())
 
             withContext(Dispatchers.Main) {
                 updateIndexedDocuments(indexedDocuments)
@@ -150,6 +165,40 @@ interface Indexer : CoroutineScope {
     }
 
     fun showOnlySelectedByUserIndexedDocuments(): Boolean
+
+    fun addRemoveDocumentsToIndexListener(listener: () -> Unit)
+
+    fun getDocumentsToIndexToRemove(): ToRemove
+
+    fun removeDocumentsToIndex() {
+        val toRemove = getDocumentsToIndexToRemove()
+
+        if (toRemove.isEmpty()) {
+            return
+        }
+
+        setActionsStatus(newSearchIsEnabled = false, newIndexingIsEnabled = false)
+        updateStatus(Status.INDEX_IN_PROGRESS)
+
+        launch(Dispatchers.Default) {
+            val indexedDocuments = documentsIndexer
+                .removeAsync(toRemove.files, toRemove.dirs, showOnlySelectedByUserIndexedDocuments())
+                .await()
+
+            withContext(Dispatchers.Main) {
+                updateIndexedDocuments(indexedDocuments)
+                setActionsStatus(newSearchIsEnabled = true, newIndexingIsEnabled = true)
+                updateDocumentsThatContainTerms(false)
+                updateStatus(Status.INDEX_COMPLETED)
+            }
+        }
+    }
+
+    data class ToRemove(val files: List<AbsolutePath>, val dirs: List<AbsolutePath>) {
+        fun isEmpty(): Boolean {
+            return files.isEmpty() && dirs.isEmpty()
+        }
+    }
 
     private enum class Status {
         IDLE,
