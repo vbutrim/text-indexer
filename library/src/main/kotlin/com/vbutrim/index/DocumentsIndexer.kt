@@ -3,6 +3,7 @@ package com.vbutrim.index
 import com.vbutrim.file.AbsolutePath
 import com.vbutrim.file.FileManager
 import com.vbutrim.file.FilesAndDirs
+import com.vbutrim.index.file.IndexFileManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.actor
@@ -20,9 +21,9 @@ class DocumentsIndexer(
     private val index = Index()
     private val mutex: Mutex = Mutex()
 
-    suspend fun getAllIndexedItems(indexedItemsFilter: IndexedItemsFilter): List<IndexedItem> {
+    suspend fun getIndexedItems(indexedItemsFilter: IndexedItemsFilter): List<IndexedItem> {
         mutex.withLock {
-            return indexedDocuments.getAllIndexedItems(indexedItemsFilter)
+            return indexedDocuments.getIndexedItems(indexedItemsFilter)
         }
     }
 
@@ -59,7 +60,7 @@ class DocumentsIndexer(
             mutex.withLock {
                 async {
                     if (!isActive || paths.isEmpty()) {
-                        return@async getAllIndexedItems(indexedItemsFilter)
+                        return@async getIndexedItems(indexedItemsFilter)
                     }
 
                     logPathsToIndex(paths)
@@ -72,7 +73,7 @@ class DocumentsIndexer(
 
                     val actor = indexerActor(
                         indexedItemsFilter,
-                        (getAllIndexedItems(indexedItemsFilter)).toMutableList(),
+                        (getIndexedItems(indexedItemsFilter)).toMutableList(),
                         updateResults
                     )
 
@@ -148,7 +149,7 @@ class DocumentsIndexer(
                 }
 
                 is IndexerMessage.GetAllIndexedDocuments -> {
-                    msg.response.complete(indexedDocuments.getAllIndexedItems(indexedItemsFilter))
+                    msg.response.complete(indexedDocuments.getIndexedItems(indexedItemsFilter))
                 }
             }
         }
@@ -172,30 +173,35 @@ class DocumentsIndexer(
             mutex.withLock {
                 async {
                     if (!isActive || (filesToRemove.isEmpty() && dirsToRemove.isEmpty())) {
-                        return@async getAllIndexedItems(indexedItemsFilter)
+                        return@async getIndexedItems(indexedItemsFilter)
                     }
 
-                    val toRemove = FileManager.defineItemsToRemove(
+                    val toRemove = IndexFileManager.defineItemsToRemove(
                         filesToRemove,
                         dirsToRemove,
-                        getAllIndexedItems(IndexedItemsFilter.ANY)
+                        getIndexedItems(IndexedItemsFilter.ANY)
                     )
 
                     val removedDocumentIds = indexedDocuments.remove(toRemove)
                     index.remove(removedDocumentIds)
 
-                    return@async getAllIndexedItems(indexedItemsFilter)
+                    return@async getIndexedItems(indexedItemsFilter)
                 }
             }
         }
 
-/*    suspend fun syncIndexedItemsAsync(notNestedWithDirOnly: Boolean): Deferred<List<IndexedItem>> = coroutineScope {
-        mutex.withLock {
-            async {
-                if (!isActive) {
-                    return@async getAllIndexedItems()
+    suspend fun syncIndexedItemsAsync(indexedItemsFilter: IndexedItemsFilter): Deferred<List<IndexedItem>> =
+        coroutineScope {
+            mutex.withLock {
+                async {
+                    if (!isActive) {
+                        return@async getIndexedItems(indexedItemsFilter)
+                    }
+
+                    val indexedItems = getIndexedItems(IndexedItemsFilter.ANY)
+
+                    return@async getIndexedItems(indexedItemsFilter)
                 }
             }
-        }
-    }*/
+    }
 }

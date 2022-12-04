@@ -18,11 +18,11 @@ class AbsolutePath private constructor(private val absolutePath: Path) {
         return absolutePath.root
     }
 
-    fun getParentAsAbsolutePath(): AbsolutePath {
-        return AbsolutePath(getParent())
+    fun getParent(): AbsolutePath {
+        return AbsolutePath(getParentAsPath())
     }
 
-    fun getParent(): Path {
+    fun getParentAsPath(): Path {
         return absolutePath.parent
     }
 
@@ -32,6 +32,22 @@ class AbsolutePath private constructor(private val absolutePath: Path) {
 
     fun asPath(): Path {
         return absolutePath
+    }
+
+    fun getAllDirPaths(): List<AbsolutePath> {
+        var subDirPath = getRoot()
+        val allDirs = mutableListOf<AbsolutePath>()
+            .let {
+                it.add(cons(subDirPath))
+                it
+            }
+
+        for (subDir in asPath()) {
+            subDirPath = subDirPath.resolve(subDir)
+            allDirs.add(cons(subDirPath))
+        }
+
+        return allDirs
     }
 
     override fun toString(): String {

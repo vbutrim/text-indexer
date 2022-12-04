@@ -156,7 +156,7 @@ interface Indexer : CoroutineScope {
         setActionsStatus(newSearchIsEnabled = false, newIndexingIsEnabled = false)
 
         launch(Dispatchers.Default) {
-            val indexedDocuments = documentsIndexer.getAllIndexedItems(indexedItemsFilter())
+            val indexedDocuments = documentsIndexer.getIndexedItems(indexedItemsFilter())
 
             withContext(Dispatchers.Main) {
                 updateIndexedDocuments(indexedDocuments)

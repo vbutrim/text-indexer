@@ -68,7 +68,7 @@ class IndexedDocuments {
     private fun getDirNodeOrNull(path: AbsolutePath): Node.Dir? {
         var current: Node? = root.getOrNull(path.getRoot().toString())
 
-        for (subDir in path.getParent()) {
+        for (subDir in path.getParentAsPath()) {
             if (current == null) {
                 break
             }
@@ -140,7 +140,7 @@ class IndexedDocuments {
         }
     }
 
-    fun getAllIndexedItems(indexedItemsFilter: IndexedItemsFilter): List<IndexedItem> {
+    fun getIndexedItems(indexedItemsFilter: IndexedItemsFilter): List<IndexedItem> {
         return DepthFirstSearch.getAllIndexedPaths(root, indexedItemsFilter)
     }
 

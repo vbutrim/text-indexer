@@ -21,7 +21,7 @@ data class Document(val path: AbsolutePath, private val modificationTime: Instan
         }
 
         fun getDir(): Path {
-            return getPath().getParent()
+            return getPath().getParentAsPath()
         }
 
         fun getFileName(): String {
