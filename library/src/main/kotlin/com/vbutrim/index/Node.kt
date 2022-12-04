@@ -2,7 +2,9 @@ package com.vbutrim.index
 
 import java.util.function.Supplier
 
-internal sealed class Node {
+internal sealed class Node() {
+    abstract fun isNestedWithDir(): Boolean
+
     class File(private val file: IndexedItem.File) : Node() {
         companion object {
             fun cons(file: IndexedItem.File): File {
@@ -14,29 +16,37 @@ internal sealed class Node {
             return file.id
         }
 
-        fun isNestedWithDir(): Boolean{
-            return file.isNestedWithDir
+        override fun isNestedWithDir(): Boolean{
+            return file.isNestedWithDir()
         }
 
         fun asFile(): IndexedItem.File {
             return file
         }
+
+        fun setNotNestedWithDir() {
+            file.setNotNestedWithDir()
+        }
     }
 
-    class Dir(private var isIndexed: Boolean) : Node() {
+    class Dir(
+        private var isIndexed: Boolean,
+        private var isNestedWithDir: Boolean?
+    ) : Node() {
 
         private val children: MutableMap<String, Node> = HashMap()
 
         companion object {
-            fun cons(isIndexed: Boolean): Dir {
-                return Dir(isIndexed)
-            }
-            fun notIndexed(): Dir {
-                return cons(false)
+            fun cons(isIndexed: Boolean, isNestedWithDir: Boolean? = null): Dir {
+                return Dir(isIndexed, isNestedWithDir)
             }
 
-            fun indexed(): Dir {
-                return cons(true)
+            fun notIndexed(): Dir {
+                return cons(isIndexed = false)
+            }
+
+            fun indexedIndependently(): Dir {
+                return cons(isIndexed = true, isNestedWithDir = false)
             }
         }
 
@@ -80,6 +90,14 @@ internal sealed class Node {
 
         fun hasAnyChild(): Boolean {
             return children.isNotEmpty()
+        }
+
+        override fun isNestedWithDir(): Boolean {
+            return isNestedWithDir ?: true
+        }
+
+        fun setNotNestedWithDir() {
+            isNestedWithDir = false
         }
     }
 }

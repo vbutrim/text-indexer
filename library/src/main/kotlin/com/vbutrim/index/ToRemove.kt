@@ -3,12 +3,14 @@ package com.vbutrim.index
 import com.vbutrim.file.AbsolutePath
 import java.nio.file.Path
 
-internal class ToRemove private constructor(
+class ToRemove private constructor(
     private val filesToRemove: Set<Path>,
     private val dirsToRemove: Set<Path>,
     private val dirsToMarkAsNotIndexed: Set<Path>
 ) {
     companion object {
+        val EMPTY = cons(listOf(), listOf(), listOf())
+
         fun cons(
             filesToRemove: List<AbsolutePath>,
             dirsToRemove: List<AbsolutePath>,

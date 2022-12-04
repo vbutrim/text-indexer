@@ -11,13 +11,14 @@ internal object IndexedDocuments {
 
     fun add(dir: FilesAndDirs.Dir) {
         computeDirNode(dir.getParent())
-            .computeIfAbsent(dir.getName()) { Node.Dir.indexed() }
+            .computeIfAbsent(dir.getName()) { Node.Dir.indexedIndependently() }
             .let {
                 require(it is Node.Dir) {
                     "not a dirNode"
                 }
 
                 it.setIndexed()
+                it.setNotNestedWithDir()
                 DepthFirstSearch.markAllSubdirectoriesAsIndexed(it)
             }
     }
@@ -35,6 +36,10 @@ internal object IndexedDocuments {
 
         require(fileNode is Node.File) {
             "not a fileNode"
+        }
+
+        if (!isNestedWithDir) {
+            fileNode.setNotNestedWithDir()
         }
 
         fileNodeById.computeIfAbsent(fileNode.getId()) { fileNode }
@@ -99,7 +104,7 @@ internal object IndexedDocuments {
     private fun computeDirNode(path: Path): Node.Dir {
         var current = root.computeIfAbsent(path.root.toString(), Node.Dir::notIndexed)
 
-        var shouldMarkAsIndexed = when (current) {
+        var shouldBeMarkedAsIndexed = when (current) {
             is Node.File -> false
             is Node.Dir -> current.isIndexed()
         }
@@ -109,11 +114,11 @@ internal object IndexedDocuments {
                 "not a dirNode"
             }
 
-            shouldMarkAsIndexed = shouldMarkAsIndexed || current.isIndexed()
+            shouldBeMarkedAsIndexed = shouldBeMarkedAsIndexed || current.isIndexed()
             current = current
-                .computeIfAbsent(subDir.toString()) { Node.Dir.cons(shouldMarkAsIndexed) }
+                .computeIfAbsent(subDir.toString()) { Node.Dir.cons(shouldBeMarkedAsIndexed) }
                 .let {
-                    markAsIndexedIf(shouldMarkAsIndexed, it)
+                    markAsIndexedIf(shouldBeMarkedAsIndexed, it)
                     it
                 }
         }
@@ -128,7 +133,9 @@ internal object IndexedDocuments {
         if (shouldMarkAsIndexed) {
             when (current) {
                 is Node.File -> {}
-                is Node.Dir -> current.setIndexed()
+                is Node.Dir -> {
+                    current.setIndexed()
+                }
             }
         }
     }

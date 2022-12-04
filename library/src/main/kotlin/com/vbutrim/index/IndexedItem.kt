@@ -14,12 +14,20 @@ sealed class IndexedItem(private val path: AbsolutePath) {
         val path: AbsolutePath,
         val id: Int,
         val modificationTime: Instant,
-        val isNestedWithDir: Boolean
+        private var isNestedWithDir: Boolean
     ) : IndexedItem(path) {
         companion object {
             fun of(id: Int, document: Document.Tokenized, isNestedWithDir: Boolean): File {
                 return File(document.getPath(), id, document.getModificationTime(), isNestedWithDir)
             }
+        }
+
+        fun isNestedWithDir(): Boolean {
+            return isNestedWithDir
+        }
+
+        fun setNotNestedWithDir() {
+            isNestedWithDir = false
         }
     }
 }

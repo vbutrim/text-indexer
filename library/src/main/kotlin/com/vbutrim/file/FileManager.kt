@@ -1,5 +1,7 @@
 package com.vbutrim.file
 
+import com.vbutrim.index.IndexedItem
+import com.vbutrim.index.ToRemove
 import java.io.File
 
 abstract class FileManager {
@@ -37,6 +39,13 @@ abstract class FileManager {
                 .filter { it.isFile }
                 .map { FilesAndDirs.File.nestedWithDir(it) }
                 .toList()
+        }
+
+        fun defineItemsToRemove(
+            pathsToRemove: List<AbsolutePath>,
+            indexedItems: List<IndexedItem>
+        ): ToRemove {
+            return ToRemove.EMPTY
         }
     }
 }

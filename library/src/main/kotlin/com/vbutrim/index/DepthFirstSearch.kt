@@ -8,20 +8,20 @@ internal abstract class DepthFirstSearch {
         /**
          * @implNote start dfs with root's children to construct path correctly.
          */
-        fun getAllIndexedPaths(root: Node.Dir, userSelectionOnly: Boolean): List<IndexedItem> {
+        fun getAllIndexedPaths(root: Node.Dir, notNestedWithDirOnly: Boolean): List<IndexedItem> {
             return root
                 .getSortedChildren()
-                .flatMap { dfsOnGetAllIndexedPaths(it.value, Path.of(it.key), userSelectionOnly) }
+                .flatMap { dfsOnGetAllIndexedPaths(it.value, Path.of(it.key), notNestedWithDirOnly) }
         }
 
         private fun dfsOnGetAllIndexedPaths(
             current: Node,
             path: Path,
-            userSelectionOnly: Boolean
+            notNestedWithDirOnly: Boolean
         ): List<IndexedItem> {
             return when (current) {
                 is Node.File -> {
-                    return if (!userSelectionOnly || !current.isNestedWithDir()) {
+                    return if (!notNestedWithDirOnly || !current.isNestedWithDir()) {
                         listOf(current.asFile())
                     } else {
                         listOf()
@@ -29,45 +29,23 @@ internal abstract class DepthFirstSearch {
                 }
 
                 is Node.Dir -> {
-                    dfsOnGetAllIndexedPaths(current, path, userSelectionOnly)
+                    dfsOnGetAllIndexedPaths(current, path, notNestedWithDirOnly)
                 }
             }
         }
 
-        private fun dfsOnGetAllIndexedPaths(current: Node.Dir, path: Path, userSelectionOnly: Boolean): List<IndexedItem> {
+        private fun dfsOnGetAllIndexedPaths(current: Node.Dir, path: Path, notNestedWithDirOnly: Boolean): List<IndexedItem> {
             val items = arrayListOf<IndexedItem>()
 
             for (child in current.getSortedChildren()) {
-                items.addAll(dfsOnGetAllIndexedPaths(child.value, path.resolve(child.key), userSelectionOnly))
+                items.addAll(dfsOnGetAllIndexedPaths(child.value, path.resolve(child.key), notNestedWithDirOnly))
             }
 
-            if (current.isIndexed()) {
-                return listOf(
-                    IndexedItem.Dir(
-                        AbsolutePath.cons(path),
-                        if (userSelectionOnly) {
-                            items
-                        } else {
-                            flatMappedDirs(items)
-                        }
-                    )
-                )
+            if (current.isIndexed() && (!notNestedWithDirOnly || !current.isNestedWithDir())) {
+                return listOf(IndexedItem.Dir(AbsolutePath.cons(path), items))
             }
 
             return items
-        }
-
-        private fun flatMappedDirs(items: List<IndexedItem>): List<IndexedItem> {
-            return items.flatMap {
-                when (it) {
-                    is IndexedItem.File -> {
-                        listOf(it)
-                    }
-                    is IndexedItem.Dir -> {
-                        it.nested
-                    }
-                }
-            }
         }
 
         fun removeAll(root: Node.Dir, toRemove: ToRemove): Set<Int> {

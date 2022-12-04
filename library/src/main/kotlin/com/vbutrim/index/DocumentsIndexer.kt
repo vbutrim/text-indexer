@@ -17,7 +17,6 @@ object DocumentsIndexer {
     private val documentTokenizer: DocumentTokenizer = DocumentTokenizer.BasedOnWordSeparation()
     private val mutex: Mutex = Mutex()
 
-
     suspend fun getAllIndexedPaths(userSelectionOnly: Boolean): List<IndexedItem> {
         mutex.withLock {
             return IndexedDocuments.getAllIndexedPaths(userSelectionOnly)
