@@ -150,9 +150,9 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
 
         protected fun set(items: List<Array<*>>) {
             if (items.isNotEmpty()) {
-                log.info("Updating result with ${items.size} rows")
+                log.debug("Updating result with ${items.size} rows")
             } else {
-                log.info("Clearing result")
+                log.debug("Clearing result")
             }
             tableModel.setDataVector(
                 items.toTypedArray(),

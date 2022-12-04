@@ -8,11 +8,14 @@ import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.actor
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.*
+import org.slf4j.Logger
+
+private val log: Logger = org.slf4j.LoggerFactory.getLogger(DocumentsIndexer::class.java)
 
 object DocumentsIndexer {
     private val documentTokenizer: DocumentTokenizer = DocumentTokenizer.BasedOnWordSeparation()
     private val mutex: Mutex = Mutex()
+
 
     suspend fun getAllIndexedPaths(userSelectionOnly: Boolean): List<IndexedItem> {
         mutex.withLock {
@@ -48,12 +51,17 @@ object DocumentsIndexer {
                         return@async getAllIndexedPaths(userSelectionOnly)
                     }
 
-                    val filesAndFolders = FileManager.splitOnFilesAndDirs(paths)
-                    filesAndFolders.dirs.forEach { IndexedDocuments.add(it) }
+                    logPathsToIndex(paths)
+
+                    val filesAndDirs = FileManager.splitOnFilesAndDirs(paths)
+
+                    logSplitPaths(filesAndDirs)
+
+                    filesAndDirs.dirs.forEach { IndexedDocuments.add(it) }
 
                     val actor = indexerActor()
 
-                    filesAndFolders
+                    filesAndDirs
                         .getAllFilesUnique()
                         .map { consJobToIndexFileAndRun(actor, it) }
                         .joinAll()
@@ -65,6 +73,22 @@ object DocumentsIndexer {
             }
         }
 
+    private fun logPathsToIndex(paths: List<AbsolutePath>) {
+        log.debug(String.format("Going to update indexer with %s paths: %s", paths.size, paths))
+    }
+
+    private fun logSplitPaths(filesAndDirs: FilesAndDirs) {
+        log.debug(
+            String.format("Split on files and dirs:\nFiles: %s\nDirs: %s",
+                filesAndDirs.files.map { "\t" + it.getPath() },
+                filesAndDirs.dirs.flatMap {
+                    listOf("\t" + it.path)
+                        .plus(it.files.map { file -> "\t\t" + file.getPath() })
+                }
+            )
+        )
+    }
+
     private fun CoroutineScope.consJobToIndexFileAndRun(
         indexerActor: SendChannel<IndexerMessage>,
         file: FilesAndDirs.File
@@ -74,6 +98,8 @@ object DocumentsIndexer {
         val document: Document.Tokenized = documentTokenizer.tokenize(DocumentReader.read(file))
 
         indexerActor.send(IndexerMessage.AddDocument(document, file.isNestedWithDir))
+
+        log.debug("File handled: " + file.getPath())
     }
 
     @OptIn(ObsoleteCoroutinesApi::class)

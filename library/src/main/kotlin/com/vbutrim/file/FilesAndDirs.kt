@@ -3,7 +3,7 @@ package com.vbutrim.file
 import java.nio.file.Path
 import java.time.Instant
 
-class FilesAndDirs(private val files: List<File>, val dirs: List<Dir>) {
+class FilesAndDirs(val files: List<File>, val dirs: List<Dir>) {
 
     fun getAllFilesUnique(): Collection<File> {
         return files
@@ -38,7 +38,7 @@ class FilesAndDirs(private val files: List<File>, val dirs: List<Dir>) {
         }
     }
 
-    class Dir(private val path: AbsolutePath, internal val files: List<File>) {
+    class Dir(val path: AbsolutePath, internal val files: List<File>) {
 
         fun getParent(): Path {
             return path.getParent()
