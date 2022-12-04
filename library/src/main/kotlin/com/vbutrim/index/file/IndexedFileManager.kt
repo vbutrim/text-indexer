@@ -8,7 +8,7 @@ import com.vbutrim.index.IndexedItem
 import java.io.File
 import java.time.Instant
 
-abstract class IndexFileManager {
+abstract class IndexedFileManager {
     companion object {
         fun defineItemsToRemove(
             filesToRemove: List<AbsolutePath>,

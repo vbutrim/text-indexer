@@ -3,7 +3,8 @@ package com.vbutrim.index
 import com.vbutrim.file.AbsolutePath
 import com.vbutrim.file.FileManager
 import com.vbutrim.file.FilesAndDirs
-import com.vbutrim.index.file.IndexFileManager
+import com.vbutrim.index.file.IndexedFileManager
+import com.vbutrim.index.file.ToRemove
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.actor
@@ -151,6 +152,10 @@ class DocumentsIndexer(
                 is IndexerMessage.GetAllIndexedDocuments -> {
                     msg.response.complete(indexedDocuments.getIndexedItems(indexedItemsFilter))
                 }
+
+                is IndexerMessage.Remove -> {
+                    remove(msg.toRemove)
+                }
             }
         }
     }
@@ -162,6 +167,8 @@ class DocumentsIndexer(
             val fileIsNestedWithDir: Boolean
         ) : IndexerMessage()
         class GetAllIndexedDocuments(val response: CompletableDeferred<List<IndexedItem>>) : IndexerMessage()
+
+        class Remove(val toRemove: ToRemove) : IndexerMessage()
     }
 
     suspend fun removeAsync(
@@ -176,19 +183,23 @@ class DocumentsIndexer(
                         return@async getIndexedItems(indexedItemsFilter)
                     }
 
-                    val toRemove = IndexFileManager.defineItemsToRemove(
+                    val toRemove = IndexedFileManager.defineItemsToRemove(
                         filesToRemove,
                         dirsToRemove,
                         getIndexedItems(IndexedItemsFilter.ANY)
                     )
 
-                    val removedDocumentIds = indexedDocuments.remove(toRemove)
-                    index.remove(removedDocumentIds)
+                    remove(toRemove)
 
                     return@async getIndexedItems(indexedItemsFilter)
                 }
             }
         }
+
+    private fun remove(toRemove: ToRemove) {
+        val removedDocumentIds = indexedDocuments.remove(toRemove)
+        index.remove(removedDocumentIds)
+    }
 
     suspend fun syncIndexedItemsAsync(indexedItemsFilter: IndexedItemsFilter): Deferred<List<IndexedItem>> =
         coroutineScope {
@@ -198,9 +209,26 @@ class DocumentsIndexer(
                         return@async getIndexedItems(indexedItemsFilter)
                     }
 
-                    val indexedItems = getIndexedItems(IndexedItemsFilter.ANY)
+                    val toSync = IndexedFileManager.defineItemsToSync(getIndexedItems(IndexedItemsFilter.ANY))
 
-                    return@async getIndexedItems(indexedItemsFilter)
+                    val actor = indexerActor(
+                        indexedItemsFilter,
+                        (getIndexedItems(indexedItemsFilter)).toMutableList()
+                    ) {}
+
+                    toSync
+                        .filesToAdd
+                        .map { consJobToIndexFileAndRun(actor, it) }
+                        .joinAll()
+
+                    actor.send(IndexerMessage.Remove(toSync.toRemove))
+
+                    val indexedItemsD = CompletableDeferred<List<IndexedItem>>()
+                    actor.send(IndexerMessage.GetAllIndexedDocuments(indexedItemsD))
+                    val indexedItems = indexedItemsD.await()
+                    actor.close()
+
+                    return@async indexedItems
                 }
             }
     }
