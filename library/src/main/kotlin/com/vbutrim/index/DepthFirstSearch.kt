@@ -5,36 +5,66 @@ import java.nio.file.Path
 
 internal abstract class DepthFirstSearch {
     companion object {
-        fun getAllIndexedPaths(): List<IndexedDocuments.Item> {
+        fun getAllIndexedPaths(userSelectionOnly: Boolean): List<IndexedItem> {
             return IndexedDocuments.root
                 .getSortedChildren()
-                .flatMap { dfsOnGetAllIndexedPaths(it.value, Path.of(it.key)) }
+                .flatMap { dfsOnGetAllIndexedPaths(it.value, Path.of(it.key), userSelectionOnly) }
         }
 
-        private fun dfsOnGetAllIndexedPaths(current: Node, path: Path): List<IndexedDocuments.Item> {
+        private fun dfsOnGetAllIndexedPaths(
+            current: Node,
+            path: Path,
+            userSelectionOnly: Boolean
+        ): List<IndexedItem> {
             return when (current) {
                 is Node.File -> {
-                    return listOf(current.asFile())
+                    return if (!userSelectionOnly || !current.isNestedWithDir()) {
+                        listOf(current.asFile())
+                    } else {
+                        listOf()
+                    }
                 }
 
                 is Node.Dir -> {
-                    dfsOnGetAllIndexedPaths(current, path)
+                    dfsOnGetAllIndexedPaths(current, path, userSelectionOnly)
                 }
             }
         }
 
-        private fun dfsOnGetAllIndexedPaths(current: Node.Dir, path: Path): List<IndexedDocuments.Item> {
-            val items = arrayListOf<IndexedDocuments.Item>()
+        private fun dfsOnGetAllIndexedPaths(current: Node.Dir, path: Path, userSelectionOnly: Boolean): List<IndexedItem> {
+            val items = arrayListOf<IndexedItem>()
 
             for (child in current.getSortedChildren()) {
-                items.addAll(dfsOnGetAllIndexedPaths(child.value, path.resolve(child.key)))
+                items.addAll(dfsOnGetAllIndexedPaths(child.value, path.resolve(child.key), userSelectionOnly))
             }
 
             if (current.isIndexed()) {
-                return listOf(IndexedDocuments.Dir(AbsolutePath.cons(path), items))
+                return listOf(
+                    IndexedItem.Dir(
+                        AbsolutePath.cons(path),
+                        if (userSelectionOnly) {
+                            items
+                        } else {
+                            flatMappedDirs(items)
+                        }
+                    )
+                )
             }
 
             return items
+        }
+
+        private fun flatMappedDirs(items: List<IndexedItem>): List<IndexedItem> {
+            return items.flatMap {
+                when (it) {
+                    is IndexedItem.File -> {
+                        listOf(it)
+                    }
+                    is IndexedItem.Dir -> {
+                        it.nested
+                    }
+                }
+            }
         }
 
         fun removeAll(toRemove: ToRemove): Set<Int> {

@@ -2,7 +2,7 @@ package com.vbutrim.index
 
 import com.vbutrim.file.FilesAndDirs
 
-object DocumentReader {
+internal object DocumentReader {
     fun read(file: FilesAndDirs.File): Document.WithContent {
         return Document.WithContent(
             Document(

@@ -2,7 +2,7 @@ package com.vbutrim.index.ui
 
 import com.vbutrim.file.AbsolutePath
 import com.vbutrim.index.DocumentsIndexer
-import com.vbutrim.index.IndexedDocuments
+import com.vbutrim.index.IndexedItem
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
 import kotlin.system.exitProcess
@@ -24,6 +24,9 @@ interface Indexer : CoroutineScope {
         }
         addGetDocumentsToIndexListener {
             addDocumentsToIndex()
+        }
+        addUserSelectionOnlyListener {
+            updateIndexedDocuments()
         }
     }
 
@@ -109,7 +112,8 @@ interface Indexer : CoroutineScope {
 
         val startTime = System.currentTimeMillis()
         launch(Dispatchers.Default) {
-            val indexedDocuments = DocumentsIndexer.updateWithAsync(pathsToIndex)
+            val indexedDocuments = DocumentsIndexer
+                .updateWithAsync(pathsToIndex, showOnlySelectedByUserIndexedDocuments())
                 .await()
 
             withContext(Dispatchers.Main) {
@@ -122,7 +126,24 @@ interface Indexer : CoroutineScope {
 
     fun getDocumentsToIndex(): List<AbsolutePath>
 
-    fun updateIndexedDocuments(documents: List<IndexedDocuments.Item>)
+    fun updateIndexedDocuments(documents: List<IndexedItem>)
+
+    fun addUserSelectionOnlyListener(listener: () -> Unit)
+
+    fun updateIndexedDocuments() {
+        setActionsStatus(newSearchIsEnabled = false, newIndexingIsEnabled = false)
+
+        launch(Dispatchers.Default) {
+            val indexedDocuments = DocumentsIndexer.getAllIndexedPaths(showOnlySelectedByUserIndexedDocuments())
+
+            withContext(Dispatchers.Main) {
+                updateIndexedDocuments(indexedDocuments)
+                setActionsStatus(newSearchIsEnabled = true, newIndexingIsEnabled = true)
+            }
+        }
+    }
+
+    fun showOnlySelectedByUserIndexedDocuments(): Boolean
 
     private enum class Status {
         IDLE,

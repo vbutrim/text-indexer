@@ -2,39 +2,41 @@ package com.vbutrim.file
 
 import java.io.File
 
-object FileManager {
-    fun splitOnFilesAndDirs(paths: List<AbsolutePath>): FilesAndDirs {
+abstract class FileManager {
+    companion object {
+        fun splitOnFilesAndDirs(paths: List<AbsolutePath>): FilesAndDirs {
 
-        val files = ArrayList<FilesAndDirs.File>()
-        val dirs = ArrayList<FilesAndDirs.Dir>()
+            val files = ArrayList<FilesAndDirs.File>()
+            val dirs = ArrayList<FilesAndDirs.Dir>()
 
-        for (path in paths) {
-            val file = File(path.getPathString())
+            for (path in paths) {
+                val file = File(path.getPathString())
 
-            if (file.isFile) {
-                files.add(FilesAndDirs.File.independent(file))
-                continue
+                if (file.isFile) {
+                    files.add(FilesAndDirs.File.independent(file))
+                    continue
+                }
+
+                dirs.add(
+                    FilesAndDirs.Dir(
+                        path,
+                        getFilesInDir(file)
+                    )
+                )
             }
 
-            dirs.add(
-                FilesAndDirs.Dir(
-                    path,
-                    getFilesInDir(file)
-                )
-            )
+            return FilesAndDirs(files, dirs)
         }
 
-        return FilesAndDirs(files, dirs)
-    }
+        private fun getFilesInDir(dir: File): List<FilesAndDirs.File> {
+            require(dir.isDirectory) {
+                "not a dir"
+            }
 
-    private fun getFilesInDir(dir: File): List<FilesAndDirs.File> {
-        require(dir.isDirectory) {
-            "not a dir"
+            return dir.walkTopDown()
+                .filter { it.isFile }
+                .map { FilesAndDirs.File.nestedWithDir(it) }
+                .toList()
         }
-
-        return dir.walkTopDown()
-            .filter { it.isFile }
-            .map { FilesAndDirs.File.nestedWithDir(it) }
-            .toList()
     }
 }

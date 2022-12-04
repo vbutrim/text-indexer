@@ -1,6 +1,7 @@
 package com.vbutrim.index.ui
 
 import com.vbutrim.file.AbsolutePath
+import com.vbutrim.index.IndexedItem
 import kotlinx.coroutines.Job
 import java.awt.Dimension
 import java.awt.GridBagConstraints
@@ -23,32 +24,34 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
     private val tokensInput = JTextField(20).apply {
         toolTipText = "comma separated"
     }
-    private val searchButton = JButton("Search documents")
-    private val searchResults = SearchResults()
     private val addPathToIndexButton = JButton("Add paths")
     private val removePathFromIndexButton = JButton("Remove paths")
     private val indexedDocuments = IndexedDocuments()
+    private val userSelectionOnlyCheckBox = JCheckBox("user selection only")
+    private val searchButton = JButton("Search documents")
+    private val searchResults = SearchResults()
     private val statusBar = StatusBar()
 
     override val job = Job()
 
     init {
         rootPane.contentPane = JPanel(GridBagLayout()).apply {
-            addLabeled("Tokens", tokensInput)
-            addWide(JPanel().apply {
-                add(searchButton)
-            })
-            addWide(searchResults.scroll) {
-                weightx = 1.0
-                weighty = 1.0
-                fill = GridBagConstraints.BOTH
-            }
-            addWideSeparator()
             addWide(JPanel().apply {
                 add(addPathToIndexButton)
                 add(removePathFromIndexButton)
             })
             addWide(indexedDocuments.scroll) {
+                weightx = 1.0
+                weighty = 1.0
+                fill = GridBagConstraints.BOTH
+            }
+            addWide(userSelectionOnlyCheckBox)
+            addWideSeparator()
+            addLabeled("Tokens", tokensInput)
+            addWide(JPanel().apply {
+                add(searchButton)
+            })
+            addWide(searchResults.scroll) {
                 weightx = 1.0
                 weighty = 1.0
                 fill = GridBagConstraints.BOTH
@@ -105,8 +108,16 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
         return Collections.emptyList()
     }
 
-    override fun updateIndexedDocuments(documents: List<com.vbutrim.index.IndexedDocuments.Item>) {
+    override fun updateIndexedDocuments(documents: List<IndexedItem>) {
         indexedDocuments.updateWith(documents)
+    }
+
+    override fun addUserSelectionOnlyListener(listener: () -> Unit) {
+        userSelectionOnlyCheckBox.addActionListener { listener() }
+    }
+
+    override fun showOnlySelectedByUserIndexedDocuments(): Boolean {
+        return userSelectionOnlyCheckBox.isSelected
     }
 
     override fun setActionsStatus(newSearchIsEnabled: Boolean, newIndexingIsEnabled: Boolean) {
@@ -157,23 +168,23 @@ class IndexerUI : JFrame("TextIndexer"), Indexer {
     }
 
     private class IndexedDocuments : NonEditableListElement(INDEXED_DOCUMENTS_COLUMNS) {
-        fun updateWith(indexedItems: List<com.vbutrim.index.IndexedDocuments.Item>) {
+        fun updateWith(indexedItems: List<IndexedItem>) {
             super.set(consRows(indexedItems).toList())
         }
 
-        private fun consRows(indexedItems: List<com.vbutrim.index.IndexedDocuments.Item>): Stream<Array<*>> {
+        private fun consRows(indexedItems: List<IndexedItem>): Stream<Array<*>> {
             return indexedItems
                 .stream()
                 .flatMap { consRows(it) }
         }
 
-        private fun consRows(indexedItem: com.vbutrim.index.IndexedDocuments.Item): Stream<Array<String>> =
+        private fun consRows(indexedItem: IndexedItem): Stream<Array<String>> =
             when (indexedItem) {
-                is com.vbutrim.index.IndexedDocuments.File -> {
+                is IndexedItem.File -> {
                     Stream.of(arrayOf(indexedItem.getPathAsString()))
                 }
 
-                is com.vbutrim.index.IndexedDocuments.Dir -> {
+                is IndexedItem.Dir -> {
                     Stream.concat(
                         Stream.of(arrayOf("[dir] " + indexedItem.getPathAsString())),
                         indexedItem.nested.stream().flatMap { consRows(it) }

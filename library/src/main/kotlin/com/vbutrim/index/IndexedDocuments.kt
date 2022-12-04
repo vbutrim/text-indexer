@@ -3,9 +3,8 @@ package com.vbutrim.index
 import com.vbutrim.file.AbsolutePath
 import com.vbutrim.file.FilesAndDirs
 import java.nio.file.Path
-import java.time.Instant
 
-object IndexedDocuments {
+internal object IndexedDocuments {
     internal val root: Node.Dir = Node.Dir.notIndexed()
     private val fileNodeById: MutableMap<Int, Node.File> = HashMap()
     private var nextId: Int = 0
@@ -22,10 +21,10 @@ object IndexedDocuments {
             }
     }
 
-    fun add(document: Document.Tokenized, isNestedWithDir: Boolean): File {
+    fun add(document: Document.Tokenized, isNestedWithDir: Boolean): IndexedItem.File {
         val fileNode = computeDirNode(document.getDir()).computeIfAbsent(document.getFileName()) {
             Node.File.cons(
-                File.of(nextId++, document, isNestedWithDir)
+                IndexedItem.File.of(nextId++, document, isNestedWithDir)
             )
         }
 
@@ -38,11 +37,11 @@ object IndexedDocuments {
         return fileNode.asFile()
     }
 
-    fun getFileById(id: Int): File? {
+    fun getFileById(id: Int): IndexedItem.File? {
         return fileNodeById[id]?.asFile()
     }
 
-    fun getFileByPath(path: AbsolutePath): File? {
+    fun getFileByPath(path: AbsolutePath): IndexedItem.File? {
         return getDirNodeOrNull(path)?.getOrNull(path.getFileName().toString())?.let {
             when (it) {
                 is Node.File -> {
@@ -108,8 +107,8 @@ object IndexedDocuments {
         return current
     }
 
-    fun getAllIndexedPaths(): List<Item> {
-        return DepthFirstSearch.getAllIndexedPaths()
+    fun getAllIndexedPaths(userSelectionOnly: Boolean): List<IndexedItem> {
+        return DepthFirstSearch.getAllIndexedPaths(userSelectionOnly)
     }
 
     /**
@@ -122,25 +121,4 @@ object IndexedDocuments {
 
         return DepthFirstSearch.removeAll(toRemove)
     }
-
-    sealed class Item(private val path: AbsolutePath) {
-        fun getPathAsString(): String {
-            return path.toString()
-        }
-    }
-
-    data class File constructor(
-        val path: AbsolutePath,
-        val id: Int,
-        val modificationTime: Instant,
-        val isNestedWithDir: Boolean
-    ) : Item(path) {
-        companion object {
-            fun of(id: Int, document: Document.Tokenized, isNestedWithDir: Boolean): File {
-                return File(document.getPath(), id, document.getModificationTime(), isNestedWithDir)
-            }
-        }
-    }
-
-    class Dir(path: AbsolutePath, val nested: List<Item>) : Item(path)
 }

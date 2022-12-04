@@ -3,9 +3,9 @@ package com.vbutrim.index
 import java.util.function.Supplier
 
 internal sealed class Node {
-    class File(private val file: IndexedDocuments.File) : Node() {
+    class File(private val file: IndexedItem.File) : Node() {
         companion object {
-            fun cons(file: IndexedDocuments.File): File {
+            fun cons(file: IndexedItem.File): File {
                 return File(file)
             }
         }
@@ -14,7 +14,11 @@ internal sealed class Node {
             return file.id
         }
 
-        fun asFile(): IndexedDocuments.File {
+        fun isNestedWithDir(): Boolean{
+            return file.isNestedWithDir
+        }
+
+        fun asFile(): IndexedItem.File {
             return file
         }
     }

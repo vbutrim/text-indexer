@@ -14,6 +14,12 @@ object DocumentsIndexer {
     private val documentTokenizer: DocumentTokenizer = DocumentTokenizer.BasedOnWordSeparation()
     private val mutex: Mutex = Mutex()
 
+    suspend fun getAllIndexedPaths(userSelectionOnly: Boolean): List<IndexedItem> {
+        mutex.withLock {
+            return IndexedDocuments.getAllIndexedPaths(userSelectionOnly)
+        }
+    }
+
     suspend fun getDocumentThatContainTokenPaths(tokens: List<String>): List<AbsolutePath> {
         if (tokens.isEmpty()) {
             return listOf()
@@ -31,14 +37,15 @@ object DocumentsIndexer {
     }
 
     /**
-     * @return all indexed paths
+     * @param userSelectionOnly defines if there is need to return all indexed paths or paths, which user actually selected
+     * @return indexed paths considering userSelectionOnly flag
      */
-    suspend fun updateWithAsync(paths: List<AbsolutePath>): Deferred<List<IndexedDocuments.Item>> =
+    suspend fun updateWithAsync(paths: List<AbsolutePath>, userSelectionOnly: Boolean): Deferred<List<IndexedItem>> =
         coroutineScope {
             mutex.withLock {
                 async {
                     if (!isActive || paths.isEmpty()) {
-                        return@async IndexedDocuments.getAllIndexedPaths()
+                        return@async getAllIndexedPaths(userSelectionOnly)
                     }
 
                     val filesAndFolders = FileManager.splitOnFilesAndDirs(paths)
@@ -53,7 +60,7 @@ object DocumentsIndexer {
 
                     actor.close()
 
-                    return@async IndexedDocuments.getAllIndexedPaths()
+                    return@async getAllIndexedPaths(userSelectionOnly)
                 }
             }
         }
@@ -74,7 +81,7 @@ object DocumentsIndexer {
         for (msg in channel) {
             when (msg) {
                 is IndexerMessage.RemoveDocumentIfPresent -> {
-                    val existing: IndexedDocuments.File? = IndexedDocuments.getFileByPath(msg.file.getPath())
+                    val existing: IndexedItem.File? = IndexedDocuments.getFileByPath(msg.file.getPath())
 
                     if (existing != null) {
                         Index.remove(existing.id)
@@ -97,12 +104,12 @@ object DocumentsIndexer {
     /**
      * @return all indexed paths
      */
-    suspend fun removeAsync(paths: List<AbsolutePath>): Deferred<List<IndexedDocuments.Item>> =
+    suspend fun removeAsync(paths: List<AbsolutePath>, userSelectionOnly: Boolean): Deferred<List<IndexedItem>> =
         coroutineScope {
             mutex.withLock {
                 async {
                     if (!isActive || paths.isEmpty()) {
-                        return@async IndexedDocuments.getAllIndexedPaths()
+                        return@async getAllIndexedPaths(userSelectionOnly)
                     }
 
                     val filesAndFolders = FileManager.splitOnFilesAndDirs(paths)
@@ -117,7 +124,7 @@ object DocumentsIndexer {
 
                     actor.close()
 
-                    return@async IndexedDocuments.getAllIndexedPaths()
+                    return@async getAllIndexedPaths(userSelectionOnly)
                 }
             }
         }

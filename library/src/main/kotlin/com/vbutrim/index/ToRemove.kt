@@ -3,7 +3,7 @@ package com.vbutrim.index
 import com.vbutrim.file.AbsolutePath
 import java.nio.file.Path
 
-class ToRemove private constructor(
+internal class ToRemove private constructor(
     private val filesToRemove: Set<Path>,
     private val dirsToRemove: Set<Path>,
     private val dirsToMarkAsNotIndexed: Set<Path>

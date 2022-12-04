@@ -1,9 +1,8 @@
 package com.vbutrim.index
 
 import java.util.*
-import kotlin.collections.HashMap
 
-object Index {
+internal object Index {
     private val documentIdsByToken: MutableMap<String, MutableSet<Int>> = HashMap()
 
     fun getDocumentThatContainTokenIds(token: String): Set<Int> {
