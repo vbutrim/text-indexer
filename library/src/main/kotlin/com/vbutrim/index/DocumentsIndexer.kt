@@ -18,12 +18,12 @@ object DocumentsIndexer {
     private val mutex: Mutex = Mutex()
 
     /**
-     * @param userSelectionOnly defines if there is need to return all indexed paths or paths, which user actually selected
-     * @return indexed paths considering userSelectionOnly flag
+     * @param notNestedWithDirOnly defines if there is need to return all indexed paths or paths, which user actually selected
+     * @return indexed paths considering notNestedWithDirOnly flag
      */
-    suspend fun getAllIndexedItems(userSelectionOnly: Boolean): List<IndexedItem> {
+    suspend fun getAllIndexedItems(notNestedWithDirOnly: Boolean): List<IndexedItem> {
         mutex.withLock {
-            return IndexedDocuments.getAllIndexedItems(userSelectionOnly)
+            return IndexedDocuments.getAllIndexedItems(notNestedWithDirOnly)
         }
     }
 
@@ -53,14 +53,14 @@ object DocumentsIndexer {
 
     suspend fun updateWithAsync(
         paths: List<AbsolutePath>,
-        userSelectionOnly: Boolean,
+        notNestedWithDirOnly: Boolean,
         updateResults: suspend (List<IndexedItem>) -> Unit
     ): Deferred<List<IndexedItem>> =
         coroutineScope {
             mutex.withLock {
                 async {
                     if (!isActive || paths.isEmpty()) {
-                        return@async getAllIndexedItems(userSelectionOnly)
+                        return@async getAllIndexedItems(notNestedWithDirOnly)
                     }
 
                     logPathsToIndex(paths)
@@ -72,8 +72,8 @@ object DocumentsIndexer {
                     filesAndDirs.dirs.forEach { IndexedDocuments.add(it) }
 
                     val actor = indexerActor(
-                        userSelectionOnly,
-                        (getAllIndexedItems(userSelectionOnly)).toMutableList(),
+                        notNestedWithDirOnly,
+                        (getAllIndexedItems(notNestedWithDirOnly)).toMutableList(),
                         updateResults
                     )
 
@@ -84,7 +84,7 @@ object DocumentsIndexer {
 
                     actor.close()
 
-                    return@async getAllIndexedItems(userSelectionOnly)
+                    return@async getAllIndexedItems(notNestedWithDirOnly)
                 }
             }
         }
@@ -120,7 +120,7 @@ object DocumentsIndexer {
 
     @OptIn(ObsoleteCoroutinesApi::class)
     private fun CoroutineScope.indexerActor(
-        userSelectionOnly: Boolean,
+        notNestedWithDirOnly: Boolean,
         indexedItems: MutableList<IndexedItem>,
         updateResults: suspend (List<IndexedItem>) -> Unit
     ) = actor<IndexerMessage> {
@@ -138,7 +138,7 @@ object DocumentsIndexer {
                     val indexedFile = IndexedDocuments.add(msg.document, msg.fileIsNestedWithDir)
                     Index.updateWith(msg.document, indexedFile.id)
 
-                    if (!userSelectionOnly || !msg.fileIsNestedWithDir) {
+                    if (!notNestedWithDirOnly || !msg.fileIsNestedWithDir) {
                         indexedItems.add(indexedFile)
                         indexedItems.sortWith(Comparator.comparing { it.getPathAsString() })
                         updateResults(indexedItems)
@@ -159,13 +159,13 @@ object DocumentsIndexer {
     suspend fun removeAsync(
         filesToRemove: List<AbsolutePath>,
         dirsToRemove: List<AbsolutePath>,
-        userSelectionOnly: Boolean
+        notNestedWithDirOnly: Boolean
     ): Deferred<List<IndexedItem>> =
         coroutineScope {
             mutex.withLock {
                 async {
                     if (!isActive || (filesToRemove.isEmpty() && dirsToRemove.isEmpty())) {
-                        return@async getAllIndexedItems(userSelectionOnly)
+                        return@async getAllIndexedItems(notNestedWithDirOnly)
                     }
 
                     val toRemove = FileManager.defineItemsToRemove(
@@ -177,7 +177,7 @@ object DocumentsIndexer {
                     val removedDocumentIds = IndexedDocuments.remove(toRemove)
                     Index.remove(removedDocumentIds)
 
-                    return@async getAllIndexedItems(userSelectionOnly)
+                    return@async getAllIndexedItems(notNestedWithDirOnly)
                 }
             }
         }

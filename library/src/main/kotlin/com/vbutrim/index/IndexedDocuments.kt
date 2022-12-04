@@ -140,8 +140,8 @@ internal object IndexedDocuments {
         }
     }
 
-    fun getAllIndexedItems(userSelectionOnly: Boolean): List<IndexedItem> {
-        return DepthFirstSearch.getAllIndexedPaths(root, userSelectionOnly)
+    fun getAllIndexedItems(notNestedWithDirOnly: Boolean): List<IndexedItem> {
+        return DepthFirstSearch.getAllIndexedPaths(root, notNestedWithDirOnly)
     }
 
     /**
