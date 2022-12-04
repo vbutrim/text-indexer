@@ -17,9 +17,13 @@ object DocumentsIndexer {
     private val documentTokenizer: DocumentTokenizer = DocumentTokenizer.BasedOnWordSeparation()
     private val mutex: Mutex = Mutex()
 
-    suspend fun getAllIndexedPaths(userSelectionOnly: Boolean): List<IndexedItem> {
+    /**
+     * @param userSelectionOnly defines if there is need to return all indexed paths or paths, which user actually selected
+     * @return indexed paths considering userSelectionOnly flag
+     */
+    suspend fun getAllIndexedItems(userSelectionOnly: Boolean): List<IndexedItem> {
         mutex.withLock {
-            return IndexedDocuments.getAllIndexedPaths(userSelectionOnly)
+            return IndexedDocuments.getAllIndexedItems(userSelectionOnly)
         }
     }
 
@@ -47,10 +51,6 @@ object DocumentsIndexer {
         }
     }
 
-    /**
-     * @param userSelectionOnly defines if there is need to return all indexed paths or paths, which user actually selected
-     * @return indexed paths considering userSelectionOnly flag
-     */
     suspend fun updateWithAsync(
         paths: List<AbsolutePath>,
         userSelectionOnly: Boolean,
@@ -60,7 +60,7 @@ object DocumentsIndexer {
             mutex.withLock {
                 async {
                     if (!isActive || paths.isEmpty()) {
-                        return@async getAllIndexedPaths(userSelectionOnly)
+                        return@async getAllIndexedItems(userSelectionOnly)
                     }
 
                     logPathsToIndex(paths)
@@ -73,7 +73,7 @@ object DocumentsIndexer {
 
                     val actor = indexerActor(
                         userSelectionOnly,
-                        (getAllIndexedPaths(userSelectionOnly)).toMutableList(),
+                        (getAllIndexedItems(userSelectionOnly)).toMutableList(),
                         updateResults
                     )
 
@@ -84,7 +84,7 @@ object DocumentsIndexer {
 
                     actor.close()
 
-                    return@async getAllIndexedPaths(userSelectionOnly)
+                    return@async getAllIndexedItems(userSelectionOnly)
                 }
             }
         }
@@ -156,30 +156,28 @@ object DocumentsIndexer {
         ) : IndexerMessage()
     }
 
-    /**
-     * @return all indexed paths
-     */
-    suspend fun removeAsync(paths: List<AbsolutePath>, userSelectionOnly: Boolean): Deferred<List<IndexedItem>> =
+    suspend fun removeAsync(
+        filesToRemove: List<AbsolutePath>,
+        dirsToRemove: List<AbsolutePath>,
+        userSelectionOnly: Boolean
+    ): Deferred<List<IndexedItem>> =
         coroutineScope {
             mutex.withLock {
                 async {
-                    if (!isActive || paths.isEmpty()) {
-                        return@async getAllIndexedPaths(userSelectionOnly)
+                    if (!isActive || (filesToRemove.isEmpty() && dirsToRemove.isEmpty())) {
+                        return@async getAllIndexedItems(userSelectionOnly)
                     }
 
-                    val filesAndFolders = FileManager.splitOnFilesAndDirs(paths)
-                    filesAndFolders.dirs.forEach { IndexedDocuments.add(it) }
+                    val toRemove = FileManager.defineItemsToRemove(
+                        filesToRemove,
+                        dirsToRemove,
+                        getAllIndexedItems(false)
+                    )
 
-/*                    val actor = indexerActor(null, null, null)
+                    val removedDocumentIds = IndexedDocuments.remove(toRemove)
+                    Index.remove(removedDocumentIds)
 
-                    filesAndFolders
-                        .getAllFilesUnique()
-                        .map { consJobToIndexFileAndRun(actor, it) }
-                        .joinAll()
-
-                    actor.close()*/
-
-                    return@async getAllIndexedPaths(userSelectionOnly)
+                    return@async getAllIndexedItems(userSelectionOnly)
                 }
             }
         }

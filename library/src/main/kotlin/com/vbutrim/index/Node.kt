@@ -73,8 +73,9 @@ internal sealed class Node() {
             isIndexed = true
         }
 
-        fun setNotIndexed() {
+        fun setNotIndexedAndNestedWithDirAgnostic() {
             isIndexed = false
+            isNestedWithDir = null
         }
 
         fun isIndexed(): Boolean {

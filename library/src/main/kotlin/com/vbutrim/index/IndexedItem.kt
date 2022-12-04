@@ -3,7 +3,7 @@ package com.vbutrim.index
 import com.vbutrim.file.AbsolutePath
 import java.time.Instant
 
-sealed class IndexedItem(private val path: AbsolutePath) {
+sealed class IndexedItem(val path: AbsolutePath) {
     fun getPathAsString(): String {
         return path.toString()
     }

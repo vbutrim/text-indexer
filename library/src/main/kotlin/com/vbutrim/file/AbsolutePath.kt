@@ -18,6 +18,10 @@ class AbsolutePath private constructor(private val absolutePath: Path) {
         return absolutePath.root
     }
 
+    fun getParentAsAbsolutePath(): AbsolutePath {
+        return AbsolutePath(getParent())
+    }
+
     fun getParent(): Path {
         return absolutePath.parent
     }

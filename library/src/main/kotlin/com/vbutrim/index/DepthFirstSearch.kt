@@ -117,8 +117,8 @@ internal abstract class DepthFirstSearch {
 
             current.removeAll(childrenToRemove)
 
-            if (toRemove.isDirAsMarkedNotIndexedByAbsolutePath(path)) {
-                current.setNotIndexed()
+            if (toRemove.dirShouldBeMarkedAsNotIndexedByAbsolutePath(path)) {
+                current.setNotIndexedAndNestedWithDirAgnostic()
             }
 
             return removeForcibly

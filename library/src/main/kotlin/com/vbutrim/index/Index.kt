@@ -20,8 +20,16 @@ internal object Index {
     }
 
     fun remove(vararg documentIds: Int) {
+        remove(documentIds.asList())
+    }
+
+    fun remove(documentIds: Collection<Int>) {
+        if (documentIds.isEmpty()) {
+            return
+        }
+
         documentIdsByToken.values
-            .forEach { it.removeAll(documentIds.asList().toSet()) }
+            .forEach { it.removeAll(documentIds.toSet()) }
 
         documentIdsByToken.entries
             .removeIf { it.value.isEmpty() }

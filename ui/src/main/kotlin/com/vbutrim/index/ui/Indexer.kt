@@ -140,7 +140,7 @@ interface Indexer : CoroutineScope {
         setActionsStatus(newSearchIsEnabled = false, newIndexingIsEnabled = false)
 
         launch(Dispatchers.Default) {
-            val indexedDocuments = DocumentsIndexer.getAllIndexedPaths(showOnlySelectedByUserIndexedDocuments())
+            val indexedDocuments = DocumentsIndexer.getAllIndexedItems(showOnlySelectedByUserIndexedDocuments())
 
             withContext(Dispatchers.Main) {
                 updateIndexedDocuments(indexedDocuments)

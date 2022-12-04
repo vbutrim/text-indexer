@@ -12,9 +12,9 @@ class ToRemove private constructor(
         val EMPTY = cons(listOf(), listOf(), listOf())
 
         fun cons(
-            filesToRemove: List<AbsolutePath>,
-            dirsToRemove: List<AbsolutePath>,
-            dirsToMarkAsNotIndexed: List<AbsolutePath>
+            filesToRemove: Collection<AbsolutePath>,
+            dirsToRemove: Collection<AbsolutePath>,
+            dirsToMarkAsNotIndexed: Collection<AbsolutePath>
         ): ToRemove {
             return ToRemove(
                 toUniquePaths(filesToRemove),
@@ -23,7 +23,7 @@ class ToRemove private constructor(
             )
         }
 
-        private fun toUniquePaths(paths: List<AbsolutePath>): Set<Path> {
+        private fun toUniquePaths(paths: Collection<AbsolutePath>): Set<Path> {
             return paths.map { it.asPath() }.toSet()
         }
     }
@@ -48,7 +48,7 @@ class ToRemove private constructor(
         return dirsToRemove.contains(path)
     }
 
-    fun isDirAsMarkedNotIndexedByAbsolutePath(path: Path): Boolean {
+    fun dirShouldBeMarkedAsNotIndexedByAbsolutePath(path: Path): Boolean {
         require(path.isAbsolute) {
             "not an absolute path"
         }
