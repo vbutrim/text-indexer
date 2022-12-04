@@ -150,15 +150,19 @@ internal abstract class DepthFirstSearch {
 
         fun markAllSubdirectoriesAsIndexed(current: Node.Dir) {
             for (child in current.getChildren()) {
-                when (val childNode = child.value) {
-                    is Node.File -> {
-                        continue
-                    }
+                markAllSubdirectoriesAsIndexed(child.value)
+            }
+        }
 
-                    is Node.Dir -> {
-                        childNode.setIndexed()
-                        markAllSubdirectoriesAsIndexed(childNode)
-                    }
+        private fun markAllSubdirectoriesAsIndexed(current: Node) {
+            when (current) {
+                is Node.File -> {
+                    return
+                }
+
+                is Node.Dir -> {
+                    current.setIndexed()
+                    markAllSubdirectoriesAsIndexed(current)
                 }
             }
         }
