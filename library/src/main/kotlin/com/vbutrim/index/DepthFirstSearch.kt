@@ -1,6 +1,7 @@
 package com.vbutrim.index
 
 import com.vbutrim.file.AbsolutePath
+import com.vbutrim.index.file.ToRemove
 import java.nio.file.Path
 
 internal abstract class DepthFirstSearch {

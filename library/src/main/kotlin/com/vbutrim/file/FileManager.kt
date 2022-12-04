@@ -10,7 +10,7 @@ abstract class FileManager {
             val dirs = ArrayList<FilesAndDirs.Dir>()
 
             for (path in paths) {
-                val file = File(path.getPathString())
+                val file = File(path.getPathAsString())
 
                 if (file.isFile) {
                     files.add(FilesAndDirs.File.independent(file))
@@ -28,7 +28,7 @@ abstract class FileManager {
             return FilesAndDirs(files, dirs)
         }
 
-        private fun getFilesInDir(dir: File): Sequence<FilesAndDirs.File> {
+        fun getFilesInDir(dir: File): Sequence<FilesAndDirs.File> {
             require(dir.isDirectory) {
                 "not a dir"
             }
@@ -38,14 +38,12 @@ abstract class FileManager {
                 .map { FilesAndDirs.File.nestedWithDir(it) }
         }
 
-        fun fileExists(path: AbsolutePath): Boolean {
-            val file = File(path.getPathString())
-
+        fun fileExists(file: File): Boolean {
             return file.exists() && file.isFile
         }
 
         fun dirContainsAnyFile(path: AbsolutePath): Boolean {
-            val dir = File(path.getPathString())
+            val dir = File(path.getPathAsString())
 
             return dirExists(dir) && getFilesInDir(dir).any()
         }

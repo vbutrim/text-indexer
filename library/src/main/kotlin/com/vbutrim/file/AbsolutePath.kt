@@ -10,7 +10,7 @@ class AbsolutePath private constructor(private val absolutePath: Path) {
         }
     }
 
-    fun getPathString(): String {
+    fun getPathAsString(): String {
         return absolutePath.pathString
     }
 

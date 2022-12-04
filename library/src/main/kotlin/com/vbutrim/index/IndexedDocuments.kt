@@ -2,6 +2,7 @@ package com.vbutrim.index
 
 import com.vbutrim.file.AbsolutePath
 import com.vbutrim.file.FilesAndDirs
+import com.vbutrim.index.file.ToRemove
 import java.nio.file.Path
 
 class IndexedDocuments {

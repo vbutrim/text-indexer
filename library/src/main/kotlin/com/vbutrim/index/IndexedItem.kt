@@ -29,5 +29,9 @@ sealed class IndexedItem(open val path: AbsolutePath) {
         fun setNotNestedWithDir() {
             isNestedWithDir = false
         }
+
+        fun isOutDated(lastModificationTime: Instant): Boolean {
+            return modificationTime.isBefore(lastModificationTime)
+        }
     }
 }

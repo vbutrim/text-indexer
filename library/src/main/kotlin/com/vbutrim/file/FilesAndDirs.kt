@@ -8,7 +8,7 @@ class FilesAndDirs(val files: List<File>, val dirs: List<Dir>) {
     fun getAllFilesUnique(): Collection<File> {
         return files
             .plus(dirs.flatMap { it.files })
-            .distinctBy { it.getPath().getPathString() }
+            .distinctBy { it.getPath().getPathAsString() }
     }
 
     class File private constructor(
@@ -16,12 +16,15 @@ class FilesAndDirs(val files: List<File>, val dirs: List<Dir>) {
         val isNestedWithDir: Boolean)
     {
         companion object {
+            fun cons(file: java.io.File, isNestedWithDir: Boolean): File {
+                return File(file, isNestedWithDir)
+            }
             fun independent(file: java.io.File): File {
-                return File(file, false)
+                return cons(file, false)
             }
 
             fun nestedWithDir(file: java.io.File): File {
-                return File(file, true)
+                return cons(file, true)
             }
         }
 
@@ -30,7 +33,7 @@ class FilesAndDirs(val files: List<File>, val dirs: List<Dir>) {
         }
 
         fun readModificationTime(): Instant {
-            return Instant.ofEpochMilli(file.lastModified())
+            return file.readModificationTime()
         }
 
         fun readText(): String {

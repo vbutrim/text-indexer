@@ -1,4 +1,4 @@
-package com.vbutrim.index
+package com.vbutrim.index.file
 
 import com.vbutrim.file.AbsolutePath
 import java.nio.file.Path
@@ -29,7 +29,7 @@ class ToRemove private constructor(
     }
 
     fun isEmpty(): Boolean {
-        return filesToRemove.isEmpty() && dirsToRemove.isEmpty()
+        return filesToRemove.isEmpty() && dirsToRemove.isEmpty() && dirsToMarkAsNotIndexed.isEmpty()
     }
 
     fun containsFileByAbsolutePath(path: Path): Boolean {
