@@ -10,7 +10,7 @@ fun main() {
     )
 
     setDefaultFontSize(18f)
-    IndexerUI(documentsIndexer, Duration.ofSeconds(10), false)
+    IndexerUI(documentsIndexer, Duration.ofSeconds(10), true)
         .apply {
             pack()
             setLocationRelativeTo(null)

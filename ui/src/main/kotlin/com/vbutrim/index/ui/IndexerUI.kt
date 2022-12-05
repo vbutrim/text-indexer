@@ -44,6 +44,7 @@ class IndexerUI(
     private val indexedDocuments = IndexedDocuments()
     private val userSelectionOnlyCheckBox = JCheckBox("user selection only")
     private val syncButton = JButton("Sync")
+    private val syncForciblyButton = JButton("Sync forcibly")
     private val searchButton = JButton("Search documents")
     private val searchResults = SearchResults()
     private val statusBar = StatusBar()
@@ -126,7 +127,7 @@ class IndexerUI(
             return selectedFiles
         }
 
-        log.debug("Cancel to to select files")
+        log.debug("Cancel to select files")
         return Collections.emptyList()
     }
 
@@ -157,6 +158,7 @@ class IndexerUI(
 
     override fun addSyncIndexedDocumentsListener(listener: () -> Unit) {
         syncButton.addActionListener { listener() }
+        syncForciblyButton.addActionListener { listener() }
     }
 
     override fun syncDelayTime(): Duration {
@@ -209,7 +211,7 @@ class IndexerUI(
 
         protected fun getSelectedItems(@Suppress("SameParameterValue") column: Int): List<String> {
             return results.selectedRows
-                .map {row -> results.getValueAt(row, column).toString() }
+                .map { row -> results.getValueAt(row, column).toString() }
         }
     }
 
@@ -223,6 +225,7 @@ class IndexerUI(
         companion object {
             private const val DIR_PREFIX: String = "[dir] "
         }
+
         fun updateWith(indexedItems: List<IndexedItem>) {
             super.set(consRows(indexedItems).toList())
         }

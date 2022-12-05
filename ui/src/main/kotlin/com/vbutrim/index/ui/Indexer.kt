@@ -1,8 +1,7 @@
 package com.vbutrim.index.ui
 
-import com.vbutrim.coroutine.scheduleRepeatedly
+import com.vbutrim.coroutine.executePeriodically
 import com.vbutrim.file.AbsolutePath
-import com.vbutrim.file.FileManager
 import com.vbutrim.index.DocumentsIndexer
 import com.vbutrim.index.IndexedItem
 import com.vbutrim.index.IndexedItemsFilter
@@ -49,7 +48,7 @@ interface Indexer : CoroutineScope {
         }
 
         launch(Dispatchers.Default) {
-            scheduleRepeatedly(syncDelayTime()) {
+            executePeriodically(syncDelayTime()) {
                 syncIndexedDocuments()
             }
         }
@@ -150,19 +149,9 @@ interface Indexer : CoroutineScope {
 
         val startTime = System.currentTimeMillis()
         launch(Dispatchers.Default) {
-            val filesAndDirsToIndex = FileManager.splitOnFilesAndDirs(pathsToIndex)
-
-            if (filesAndDirsToIndex.isEmpty()) {
-                withContext(Dispatchers.Main) {
-                    updateStatus(Status.INDEX_COMPLETED, startTime)
-                    setActionStatus(nextActionIsEnabled = true)
-                }
-
-                return@launch
-            }
 
             val updated = documentsIndexer
-                .updateWithAsync(filesAndDirsToIndex, indexedItemsFilter()) {
+                .updateWithAsync(pathsToIndex, indexedItemsFilter()) {
                     withContext(Dispatchers.Main) {
                         updateIndexedDocuments(it)
                     }
@@ -206,26 +195,19 @@ interface Indexer : CoroutineScope {
     fun getDocumentsToIndexToRemove(): ToRemove
 
     private fun removeDocumentsToIndex() {
-        val filesAndDirsToRemove = getDocumentsToIndexToRemove()
+        val toRemove = getDocumentsToIndexToRemove()
 
-        if (filesAndDirsToRemove.isEmpty()) {
+        if (toRemove.isEmpty()) {
             return
         }
 
+        setActionStatus(nextActionIsEnabled = false)
+        updateStatus(Status.INDEX_IN_PROGRESS)
+
         launch(Dispatchers.Default) {
-            val toRemove = documentsIndexer.getDocumentsToRemove(filesAndDirsToRemove.files, filesAndDirsToRemove.dirs)
-
-            if (toRemove.isEmpty()) {
-                return@launch
-            }
-
-            withContext(Dispatchers.Main) {
-                setActionStatus(nextActionIsEnabled = false)
-                updateStatus(Status.INDEX_IN_PROGRESS)
-            }
 
             val removed = documentsIndexer
-                .removeAsync(toRemove, indexedItemsFilter())
+                .removeAsync(toRemove.files, toRemove.dirs, indexedItemsFilter())
                 .await()
 
             withContext(Dispatchers.Main) {
@@ -253,35 +235,27 @@ interface Indexer : CoroutineScope {
     fun addSyncIndexedDocumentsListener(listener: () -> Unit)
 
     suspend fun syncIndexedDocuments() = coroutineScope {
-        withContext(Dispatchers.Main) {
-            setActionStatus(nextActionIsEnabled = false)
-        }
         log.debug("Syncing indexed documents")
 
-        val toSync = documentsIndexer.getIndexedDocumentsToSync()
-
-        if (toSync.isEmpty()) {
-            log.debug("Nothing to sync")
-            withContext(Dispatchers.Main) {
-                setActionStatus(nextActionIsEnabled = true)
-            }
-            return@coroutineScope
+        withContext(Dispatchers.Main) {
+            setActionStatus(nextActionIsEnabled = false)
+            updateStatus(Status.INDEX_IN_PROGRESS)
         }
 
-        updateStatus(Status.INDEX_IN_PROGRESS)
-
         val synced = documentsIndexer
-            .syncIndexedItemsAsync(toSync, indexedItemsFilter())
+            .syncIndexedItemsAsync(indexedItemsFilter())
             .await()
 
         withContext(Dispatchers.Main) {
             when (synced) {
                 is DocumentsIndexer.Synced.Nothing -> {}
-                is DocumentsIndexer.Synced.Some -> updateIndexedDocuments(synced.finalIndexedItems)
+                is DocumentsIndexer.Synced.Some -> {
+                    updateIndexedDocuments(synced.finalIndexedItems)
+                    updateDocumentsThatContainTerms()
+                }
             }
 
             setActionStatus(nextActionIsEnabled = true)
-            updateDocumentsThatContainTerms()
             updateStatus(Status.INDEX_COMPLETED)
         }
     }
