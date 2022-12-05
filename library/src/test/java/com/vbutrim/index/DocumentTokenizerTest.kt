@@ -4,6 +4,6 @@ import org.junit.jupiter.api.Test
 
 internal class DocumentTokenizerTest {
     @Test
-    fun should() {
+    fun shouldTokenize() {
     }
 }
