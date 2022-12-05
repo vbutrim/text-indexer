@@ -11,6 +11,10 @@ class ToSync private constructor(val filesToAdd: List<FilesAndDirs.File>, val to
         }
     }
 
+    fun isEmpty(): Boolean {
+        return filesToAdd.isEmpty() && toRemove.isEmpty()
+    }
+
     class Builder {
         private val filesToAdd = mutableListOf<FilesAndDirs.File>()
         private val filesToRemove = mutableListOf<AbsolutePath>()

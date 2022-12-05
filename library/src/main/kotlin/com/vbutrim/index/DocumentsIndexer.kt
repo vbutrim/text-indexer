@@ -56,12 +56,12 @@ class DocumentsIndexer(
         paths: List<AbsolutePath>,
         indexedItemsFilter: IndexedItemsFilter,
         updateResults: suspend (List<IndexedItem>) -> Unit
-    ): Deferred<List<IndexedItem>> =
+    ): Deferred<Updated> =
         coroutineScope {
             mutex.withLock {
                 async {
                     if (!isActive || paths.isEmpty()) {
-                        return@async getIndexedItems(indexedItemsFilter)
+                        return@async Updated.Nothing
                     }
 
                     logPathsToIndex(paths)
@@ -88,10 +88,16 @@ class DocumentsIndexer(
                     val indexedItems = indexedItemsD.await()
                     actor.close()
 
-                    return@async indexedItems
+                    return@async Updated.Some(indexedItems)
                 }
             }
         }
+
+    sealed class Updated {
+        object Nothing: Updated()
+
+        class Some(val finalIndexedItems: List<IndexedItem>) : Updated()
+    }
 
     private fun logPathsToIndex(paths: List<AbsolutePath>) {
         log.debug(String.format("Going to update indexer with %s paths: %s", paths.size, paths))
@@ -175,12 +181,12 @@ class DocumentsIndexer(
         filesToRemove: List<AbsolutePath>,
         dirsToRemove: List<AbsolutePath>,
         indexedItemsFilter: IndexedItemsFilter
-    ): Deferred<List<IndexedItem>> =
+    ): Deferred<Removed> =
         coroutineScope {
             mutex.withLock {
                 async {
                     if (!isActive || (filesToRemove.isEmpty() && dirsToRemove.isEmpty())) {
-                        return@async getIndexedItems(indexedItemsFilter)
+                        return@async Removed.Nothing
                     }
 
                     val toRemove = IndexedFileManager.defineItemsToRemove(
@@ -191,25 +197,35 @@ class DocumentsIndexer(
 
                     remove(toRemove)
 
-                    return@async getIndexedItems(indexedItemsFilter)
+                    return@async Removed.Some(getIndexedItems(indexedItemsFilter))
                 }
             }
         }
+
+    sealed class Removed {
+        object Nothing : Removed()
+
+        class Some(val finalIndexedItems: List<IndexedItem>) : Removed()
+    }
 
     private fun remove(toRemove: ToRemove) {
         val removedDocumentIds = indexedDocuments.remove(toRemove)
         index.remove(removedDocumentIds)
     }
 
-    suspend fun syncIndexedItemsAsync(indexedItemsFilter: IndexedItemsFilter): Deferred<List<IndexedItem>> =
+    suspend fun syncIndexedItemsAsync(indexedItemsFilter: IndexedItemsFilter): Deferred<Synced> =
         coroutineScope {
             mutex.withLock {
                 async {
                     if (!isActive) {
-                        return@async getIndexedItems(indexedItemsFilter)
+                        return@async Synced.Nothing
                     }
 
                     val toSync = IndexedFileManager.defineItemsToSync(getIndexedItems(IndexedItemsFilter.ANY))
+
+                    if (toSync.isEmpty()) {
+                        return@async Synced.Nothing
+                    }
 
                     val actor = indexerActor(
                         indexedItemsFilter,
@@ -228,8 +244,14 @@ class DocumentsIndexer(
                     val indexedItems = indexedItemsD.await()
                     actor.close()
 
-                    return@async indexedItems
+                    return@async Synced.Some(indexedItems)
                 }
             }
+    }
+
+    sealed class Synced {
+        object Nothing : Synced()
+
+        class Some(val finalIndexedItems: List<IndexedItem>) : Synced()
     }
 }

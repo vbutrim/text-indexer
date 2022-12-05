@@ -130,7 +130,7 @@ interface Indexer : CoroutineScope {
 
         val startTime = System.currentTimeMillis()
         launch(Dispatchers.Default) {
-            val indexedDocuments = documentsIndexer
+            val updated = documentsIndexer
                 .updateWithAsync(pathsToIndex, indexedItemsFilter()) {
                     withContext(Dispatchers.Main) {
                         updateIndexedDocuments(it)
@@ -139,7 +139,10 @@ interface Indexer : CoroutineScope {
                 .await()
 
             withContext(Dispatchers.Main) {
-                updateIndexedDocuments(indexedDocuments)
+                when (updated) {
+                    is DocumentsIndexer.Updated.Nothing -> {}
+                    is DocumentsIndexer.Updated.Some -> updateIndexedDocuments(updated.finalIndexedItems)
+                }
                 updateStatus(Status.INDEX_COMPLETED, startTime)
                 setActionsStatus(newSearchIsEnabled = true, newIndexingIsEnabled = true)
             }
@@ -182,12 +185,16 @@ interface Indexer : CoroutineScope {
         updateStatus(Status.INDEX_IN_PROGRESS)
 
         launch(Dispatchers.Default) {
-            val indexedDocuments = documentsIndexer
+            val removed = documentsIndexer
                 .removeAsync(toRemove.files, toRemove.dirs, indexedItemsFilter())
                 .await()
 
             withContext(Dispatchers.Main) {
-                updateIndexedDocuments(indexedDocuments)
+                when (removed) {
+                    is DocumentsIndexer.Removed.Nothing -> {}
+                    is DocumentsIndexer.Removed.Some -> updateIndexedDocuments(removed.finalIndexedItems)
+                }
+
                 setActionsStatus(newSearchIsEnabled = true, newIndexingIsEnabled = true)
                 updateDocumentsThatContainTerms(false)
                 updateStatus(Status.INDEX_COMPLETED)

@@ -2,7 +2,7 @@ package com.vbutrim.index
 
 import java.util.function.Supplier
 
-internal sealed class Node() {
+internal sealed class Node {
     abstract fun isNestedWithDir(): Boolean
 
     class File(private val file: IndexedItem.File) : Node() {
