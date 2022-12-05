@@ -12,6 +12,9 @@ interface DocumentTokenizer {
         )
     }
 
+    /**
+     * split text based on any symbol or space
+     */
     class BasedOnWordSeparation: DocumentTokenizer {
         override fun collectTokens(content: String): Stream<String> {
             return Collections
