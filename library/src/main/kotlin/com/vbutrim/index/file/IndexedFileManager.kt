@@ -69,18 +69,31 @@ abstract class IndexedFileManager {
 
         fun defineItemsToSync(indexedItems: List<IndexedItem>): ToSync {
             val toSyncBuilder = ToSync.builder()
-            defineItemsToSync(flatMappedDirs(indexedItems), toSyncBuilder)
+            defineItemsToSync(flatMappedFiledInDirs(indexedItems), toSyncBuilder)
             return toSyncBuilder.build()
         }
 
-        private fun flatMappedDirs(items: List<IndexedItem>): List<IndexedItem> {
+        private fun flatMappedFiledInDirs(items: List<IndexedItem>): List<IndexedItem> {
             return items.flatMap {
                 when (it) {
                     is IndexedItem.File -> {
                         listOf(it)
                     }
                     is IndexedItem.Dir -> {
-                        flatMappedDirs(it.nested)
+                        listOf(IndexedItem.Dir(it.path, flatMappedFiles(it.nested)))
+                    }
+                }
+            }
+        }
+
+        private fun flatMappedFiles(items: List<IndexedItem>): List<IndexedItem> {
+            return items.flatMap {
+                when (it) {
+                    is IndexedItem.File -> {
+                        listOf(it)
+                    }
+                    is IndexedItem.Dir -> {
+                        flatMappedFiles(it.nested)
                     }
                 }
             }

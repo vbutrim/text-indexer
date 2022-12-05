@@ -24,7 +24,11 @@ private val INSETS = Insets(3, 10, 3, 10)
 private val SEARCH_RESULTS_COLUMNS = arrayOf("Documents that contain tokens")
 private val INDEXED_DOCUMENTS_COLUMNS = arrayOf("Indexed documents")
 
-class IndexerUI(override val documentsIndexer: DocumentsIndexer) : JFrame("TextIndexer"), Indexer {
+class IndexerUI(
+    override val documentsIndexer: DocumentsIndexer,
+    debugPanelIsEnabled: Boolean
+) : JFrame("TextIndexer"),
+    Indexer {
 
     companion object {
         private val log: Logger = LoggerFactory.getLogger(IndexerUI::class.java)
@@ -56,10 +60,12 @@ class IndexerUI(override val documentsIndexer: DocumentsIndexer) : JFrame("TextI
                 weighty = 1.0
                 fill = GridBagConstraints.BOTH
             }
-            addWide(JPanel().apply {
-                add(userSelectionOnlyCheckBox)
-                add(syncButton)
-            })
+            if (debugPanelIsEnabled) {
+                addWide(JPanel().apply {
+                    add(userSelectionOnlyCheckBox)
+                    add(syncButton)
+                })
+            }
             addWideSeparator()
             addLabeled("Tokens", tokensInput)
             addWide(JPanel().apply {

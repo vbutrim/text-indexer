@@ -9,7 +9,7 @@ fun main() {
     )
 
     setDefaultFontSize(18f)
-    IndexerUI(documentsIndexer).apply {
+    IndexerUI(documentsIndexer, false).apply {
         pack()
         setLocationRelativeTo(null)
         isVisible = true
