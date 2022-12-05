@@ -64,6 +64,8 @@ class DocumentsIndexer(
                         return@async Updated.Nothing
                     }
 
+                    log(toIndex)
+
                     toIndex.dirs.forEach { indexedDocuments.add(it) }
 
                     val actor = indexerActor(
@@ -93,7 +95,7 @@ class DocumentsIndexer(
         class Some(val finalIndexedItems: List<IndexedItem>) : Updated()
     }
 
-    private fun logSplitPaths(filesAndDirs: FilesAndDirs) {
+    private fun log(filesAndDirs: FilesAndDirs) {
         log.debug(
             String.format("Split on files and dirs:\nFiles: %s\nDirs: %s",
                 filesAndDirs.files.map { "\t" + it.getPath() },

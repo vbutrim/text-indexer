@@ -15,6 +15,7 @@ import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
 import java.nio.file.Path
+import java.time.Duration
 import java.util.*
 import java.util.stream.Stream
 import javax.swing.*
@@ -26,7 +27,8 @@ private val INDEXED_DOCUMENTS_COLUMNS = arrayOf("Indexed documents")
 
 class IndexerUI(
     override val documentsIndexer: DocumentsIndexer,
-    debugPanelIsEnabled: Boolean
+    private val syncDelayTime: Duration,
+    private val debugPanelIsEnabled: Boolean
 ) : JFrame("TextIndexer"),
     Indexer {
 
@@ -155,6 +157,10 @@ class IndexerUI(
 
     override fun addSyncIndexedDocumentsListener(listener: () -> Unit) {
         syncButton.addActionListener { listener() }
+    }
+
+    override fun syncDelayTime(): Duration {
+        return syncDelayTime
     }
 
     override fun setActionStatus(

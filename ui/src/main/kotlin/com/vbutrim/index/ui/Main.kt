@@ -2,6 +2,7 @@ package com.vbutrim.index.ui
 
 import com.vbutrim.index.DocumentTokenizer
 import com.vbutrim.index.DocumentsIndexer
+import java.time.Duration
 
 fun main() {
     val documentsIndexer = DocumentsIndexer(
@@ -9,9 +10,10 @@ fun main() {
     )
 
     setDefaultFontSize(18f)
-    IndexerUI(documentsIndexer, false).apply {
-        pack()
-        setLocationRelativeTo(null)
-        isVisible = true
-    }
+    IndexerUI(documentsIndexer, Duration.ofSeconds(10), false)
+        .apply {
+            pack()
+            setLocationRelativeTo(null)
+            isVisible = true
+        }
 }

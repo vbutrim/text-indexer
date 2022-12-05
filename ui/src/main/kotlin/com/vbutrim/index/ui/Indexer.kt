@@ -1,5 +1,6 @@
 package com.vbutrim.index.ui
 
+import com.vbutrim.coroutine.scheduleRepeatedly
 import com.vbutrim.file.AbsolutePath
 import com.vbutrim.file.FileManager
 import com.vbutrim.index.DocumentsIndexer
@@ -8,6 +9,7 @@ import com.vbutrim.index.IndexedItemsFilter
 import kotlinx.coroutines.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.time.Duration
 import kotlin.coroutines.CoroutineContext
 import kotlin.system.exitProcess
 
@@ -42,6 +44,12 @@ interface Indexer : CoroutineScope {
         }
         addSyncIndexedDocumentsListener {
             launch(Dispatchers.Default) {
+                syncIndexedDocuments()
+            }
+        }
+
+        launch(Dispatchers.Default) {
+            scheduleRepeatedly(syncDelayTime()) {
                 syncIndexedDocuments()
             }
         }
@@ -277,6 +285,8 @@ interface Indexer : CoroutineScope {
             updateStatus(Status.INDEX_COMPLETED)
         }
     }
+
+    fun syncDelayTime(): Duration
 
     private enum class Status {
         IDLE,
