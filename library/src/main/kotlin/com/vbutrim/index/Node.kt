@@ -1,5 +1,6 @@
 package com.vbutrim.index
 
+import java.time.Instant
 import java.util.function.Supplier
 
 internal sealed class Node {
@@ -22,6 +23,10 @@ internal sealed class Node {
 
         fun asFile(): IndexedItem.File {
             return file
+        }
+
+        fun setModificationTime(modificationTime: Instant) {
+            file.setModificationTime(modificationTime)
         }
 
         fun setNotNestedWithDir() {

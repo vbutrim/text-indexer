@@ -5,6 +5,10 @@ import java.time.Instant
 
 class FilesAndDirs(val files: List<File>, val dirs: List<Dir>) {
 
+    fun isEmpty(): Boolean {
+        return files.isEmpty() && dirs.isEmpty()
+    }
+
     fun getAllFilesUnique(): Collection<File> {
         return files
             .plus(dirs.flatMap { it.files })

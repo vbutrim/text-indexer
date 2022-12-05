@@ -43,6 +43,8 @@ class IndexedDocuments {
             fileNode.setNotNestedWithDir()
         }
 
+        fileNode.setModificationTime(document.getModificationTime())
+
         fileNodeById.computeIfAbsent(fileNode.getId()) { fileNode }
 
         return fileNode.asFile()

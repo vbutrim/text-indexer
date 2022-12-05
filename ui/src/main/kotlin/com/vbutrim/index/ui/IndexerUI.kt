@@ -5,6 +5,8 @@ import com.vbutrim.index.DocumentsIndexer
 import com.vbutrim.index.IndexedItem
 import com.vbutrim.index.IndexedItemsFilter
 import kotlinx.coroutines.Job
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.awt.Dimension
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
@@ -24,6 +26,10 @@ private val INDEXED_DOCUMENTS_COLUMNS = arrayOf("Indexed documents")
 
 class IndexerUI(override val documentsIndexer: DocumentsIndexer) : JFrame("TextIndexer"), Indexer {
 
+    companion object {
+        private val log: Logger = LoggerFactory.getLogger(IndexerUI::class.java)
+    }
+
     private val tokensInput = JTextField(20).apply {
         toolTipText = "comma separated"
     }
@@ -31,6 +37,7 @@ class IndexerUI(override val documentsIndexer: DocumentsIndexer) : JFrame("TextI
     private val removePathsFromIndexButton = JButton("Remove paths")
     private val indexedDocuments = IndexedDocuments()
     private val userSelectionOnlyCheckBox = JCheckBox("user selection only")
+    private val syncButton = JButton("Sync")
     private val searchButton = JButton("Search documents")
     private val searchResults = SearchResults()
     private val statusBar = StatusBar()
@@ -49,7 +56,10 @@ class IndexerUI(override val documentsIndexer: DocumentsIndexer) : JFrame("TextI
                 weighty = 1.0
                 fill = GridBagConstraints.BOTH
             }
-            addWide(userSelectionOnlyCheckBox)
+            addWide(JPanel().apply {
+                add(userSelectionOnlyCheckBox)
+                add(syncButton)
+            })
             addWideSeparator()
             addLabeled("Tokens", tokensInput)
             addWide(JPanel().apply {
@@ -137,11 +147,18 @@ class IndexerUI(override val documentsIndexer: DocumentsIndexer) : JFrame("TextI
         return Indexer.ToRemove(toRemove.first, toRemove.second)
     }
 
-    override fun setActionsStatus(newSearchIsEnabled: Boolean, newIndexingIsEnabled: Boolean) {
-        searchButton.isEnabled = newSearchIsEnabled
-        addPathsToIndexButton.isEnabled = newIndexingIsEnabled
-        removePathsFromIndexButton.isEnabled = newIndexingIsEnabled
-        userSelectionOnlyCheckBox.isEnabled = newIndexingIsEnabled
+    override fun addSyncIndexedDocumentsListener(listener: () -> Unit) {
+        syncButton.addActionListener { listener() }
+    }
+
+    override fun setActionStatus(
+        nextActionIsEnabled: Boolean
+    ) {
+        searchButton.isEnabled = nextActionIsEnabled
+        addPathsToIndexButton.isEnabled = nextActionIsEnabled
+        removePathsFromIndexButton.isEnabled = nextActionIsEnabled
+        userSelectionOnlyCheckBox.isEnabled = nextActionIsEnabled
+        syncButton.isEnabled = nextActionIsEnabled
     }
 
     override fun getTokensToSearch(): List<String> {
@@ -236,7 +253,7 @@ class IndexerUI(override val documentsIndexer: DocumentsIndexer) : JFrame("TextI
     }
 
     private class StatusBar {
-        private val icon = ImageIcon(javaClass.classLoader.getResource("ajax-loader.gif"))
+        private val icon = createImageIcon(javaClass, "ajax-loader.gif", log)
         val bar = JLabel("Choose files/directories to index", null, SwingConstants.CENTER)
 
         fun updateWith(text: String, iconRunning: Boolean) {
@@ -282,5 +299,18 @@ fun setDefaultFontSize(size: Float) {
             val newFont = font.deriveFont(size)
             UIManager.put(key, newFont)
         }
+    }
+}
+
+/**
+ * @return null if not found
+ */
+fun createImageIcon(clazz: Class<*>, path: String, log: Logger): ImageIcon? {
+    val imgURL = clazz.classLoader.getResource(path)
+    return if (imgURL != null) {
+        ImageIcon(imgURL)
+    } else {
+        log.error("Couldn't find file: $path")
+        null
     }
 }

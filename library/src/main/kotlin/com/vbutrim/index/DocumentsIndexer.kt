@@ -1,10 +1,10 @@
 package com.vbutrim.index
 
 import com.vbutrim.file.AbsolutePath
-import com.vbutrim.file.FileManager
 import com.vbutrim.file.FilesAndDirs
 import com.vbutrim.index.file.IndexedFileManager
 import com.vbutrim.index.file.ToRemove
+import com.vbutrim.index.file.ToSync
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.actor
@@ -53,24 +53,18 @@ class DocumentsIndexer(
     }
 
     suspend fun updateWithAsync(
-        paths: List<AbsolutePath>,
+        toIndex: FilesAndDirs,
         indexedItemsFilter: IndexedItemsFilter,
         updateResults: suspend (List<IndexedItem>) -> Unit
     ): Deferred<Updated> =
         coroutineScope {
             mutex.withLock {
                 async {
-                    if (!isActive || paths.isEmpty()) {
+                    if (!isActive || toIndex.isEmpty()) {
                         return@async Updated.Nothing
                     }
 
-                    logPathsToIndex(paths)
-
-                    val filesAndDirs = FileManager.splitOnFilesAndDirs(paths)
-
-                    logSplitPaths(filesAndDirs)
-
-                    filesAndDirs.dirs.forEach { indexedDocuments.add(it) }
+                    toIndex.dirs.forEach { indexedDocuments.add(it) }
 
                     val actor = indexerActor(
                         indexedItemsFilter,
@@ -78,7 +72,7 @@ class DocumentsIndexer(
                         updateResults
                     )
 
-                    filesAndDirs
+                    toIndex
                         .getAllFilesUnique()
                         .map { consJobToIndexFileAndRun(actor, it) }
                         .joinAll()
@@ -97,10 +91,6 @@ class DocumentsIndexer(
         object Nothing: Updated()
 
         class Some(val finalIndexedItems: List<IndexedItem>) : Updated()
-    }
-
-    private fun logPathsToIndex(paths: List<AbsolutePath>) {
-        log.debug(String.format("Going to update indexer with %s paths: %s", paths.size, paths))
     }
 
     private fun logSplitPaths(filesAndDirs: FilesAndDirs) {
@@ -177,23 +167,31 @@ class DocumentsIndexer(
         class Remove(val toRemove: ToRemove) : IndexerMessage()
     }
 
-    suspend fun removeAsync(
+    suspend fun getDocumentsToRemove(
         filesToRemove: List<AbsolutePath>,
-        dirsToRemove: List<AbsolutePath>,
+        dirsToRemove: List<AbsolutePath>
+    ): ToRemove {
+        if (filesToRemove.isEmpty() && dirsToRemove.isEmpty()) {
+            return ToRemove.EMPTY
+        }
+
+        return IndexedFileManager.defineItemsToRemove(
+            filesToRemove,
+            dirsToRemove,
+            getIndexedItems(IndexedItemsFilter.ANY)
+        )
+    }
+
+    suspend fun removeAsync(
+        toRemove: ToRemove,
         indexedItemsFilter: IndexedItemsFilter
     ): Deferred<Removed> =
         coroutineScope {
             mutex.withLock {
                 async {
-                    if (!isActive || (filesToRemove.isEmpty() && dirsToRemove.isEmpty())) {
+                    if (!isActive || toRemove.isEmpty()) {
                         return@async Removed.Nothing
                     }
-
-                    val toRemove = IndexedFileManager.defineItemsToRemove(
-                        filesToRemove,
-                        dirsToRemove,
-                        getIndexedItems(IndexedItemsFilter.ANY)
-                    )
 
                     remove(toRemove)
 
@@ -213,17 +211,21 @@ class DocumentsIndexer(
         index.remove(removedDocumentIds)
     }
 
-    suspend fun syncIndexedItemsAsync(indexedItemsFilter: IndexedItemsFilter): Deferred<Synced> =
+    suspend fun getIndexedDocumentsToSync(): ToSync {
+        val indexedItems = getIndexedItems(IndexedItemsFilter.ANY)
+
+        if (indexedItems.isEmpty()) {
+            return ToSync.EMPTY
+        }
+
+        return IndexedFileManager.defineItemsToSync(indexedItems)
+    }
+
+    suspend fun syncIndexedItemsAsync(toSync: ToSync, indexedItemsFilter: IndexedItemsFilter): Deferred<Synced> =
         coroutineScope {
             mutex.withLock {
                 async {
-                    if (!isActive) {
-                        return@async Synced.Nothing
-                    }
-
-                    val toSync = IndexedFileManager.defineItemsToSync(getIndexedItems(IndexedItemsFilter.ANY))
-
-                    if (toSync.isEmpty()) {
+                    if (!isActive || toSync.isEmpty()) {
                         return@async Synced.Nothing
                     }
 

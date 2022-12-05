@@ -13,7 +13,7 @@ sealed class IndexedItem(open val path: AbsolutePath) {
     data class File constructor(
         override val path: AbsolutePath,
         val id: Int,
-        val modificationTime: Instant,
+        private var modificationTime: Instant,
         private var isNestedWithDir: Boolean
     ) : IndexedItem(path) {
         companion object {
@@ -28,6 +28,10 @@ sealed class IndexedItem(open val path: AbsolutePath) {
 
         fun setNotNestedWithDir() {
             isNestedWithDir = false
+        }
+
+        fun setModificationTime(modificationTime: Instant) {
+            this.modificationTime = modificationTime
         }
 
         fun isOutDated(lastModificationTime: Instant): Boolean {

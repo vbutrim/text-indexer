@@ -6,6 +6,8 @@ import com.vbutrim.file.FilesAndDirs
 class ToSync private constructor(val filesToAdd: List<FilesAndDirs.File>, val toRemove: ToRemove) {
 
     companion object {
+        val EMPTY = ToSync(listOf(), ToRemove.EMPTY)
+
         fun builder(): Builder {
             return Builder()
         }
