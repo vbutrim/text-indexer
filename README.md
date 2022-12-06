@@ -24,5 +24,5 @@
 | Argument                  | Description                           | Default | Values       |
 |---------------------------|---------------------------------------|---------|--------------|
 | syncDelayTimeInSeconds=10 | Sync task launch frequency in seconds | 10      | Integers     |
+| syncStatusIsEnabled=false | Update status during sync             | false   | true / false |
 | debugPanelIsEnabled=false | Shows debug panel                     | false   | true / false |
-| showSyncStatus=false      | Update status during sync             | false   | true / false |

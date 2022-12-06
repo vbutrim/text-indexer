@@ -169,7 +169,7 @@ interface Indexer : CoroutineScope {
                     .await()
 
                 withContext(Dispatchers.Main) {
-                    updateIndexedDocumentsAndEnableNextActions(updated, true, startTime)
+                    updateIndexedDocumentsAndEnableNextActions(updated, startTime = startTime)
                 }
             }
         } catch (exception: Exception) {
@@ -185,7 +185,8 @@ interface Indexer : CoroutineScope {
 
     private fun updateIndexedDocumentsAndEnableNextActions(
         result: DocumentsIndexer.Result,
-        updateStatus: Boolean,
+        updateStatus: Boolean = true,
+        status: Status = Status.INDEX_COMPLETED,
         startTime: Long? = null,
         onSomeResult: (() -> Unit)? = null
     ) {
@@ -197,7 +198,7 @@ interface Indexer : CoroutineScope {
             }
         }
         if (updateStatus) {
-            updateStatus(Status.INDEX_COMPLETED, startTime)
+            updateStatus(status, startTime)
         }
         setActionStatus(nextActionIsEnabled = true)
     }
@@ -249,7 +250,7 @@ interface Indexer : CoroutineScope {
                     .await()
 
                 withContext(Dispatchers.Main) {
-                    updateIndexedDocumentsAndEnableNextActions(removed, true, startTime) {
+                    updateIndexedDocumentsAndEnableNextActions(removed, startTime = startTime) {
                         updateDocumentsThatContainTerms(false)
                     }
                 }
@@ -284,15 +285,15 @@ interface Indexer : CoroutineScope {
                         if (!nextActionIsEnabledDuringSync) {
                             setActionStatus(false)
                         }
-                        if (showSyncStatus()) {
-                            updateStatus(Status.INDEX_IN_PROGRESS)
+                        if (syncStatusIsEnabled()) {
+                            updateStatus(Status.SYNC_IN_PROGRESS)
                         }
                     }
                 }
                 .await()
 
             withContext(Dispatchers.Main) {
-                updateIndexedDocumentsAndEnableNextActions(synced, showSyncStatus()) {
+                updateIndexedDocumentsAndEnableNextActions(synced, syncStatusIsEnabled(), Status.SYNC_COMPLETED) {
                     updateDocumentsThatContainTerms(false)
                 }
             }
@@ -305,7 +306,7 @@ interface Indexer : CoroutineScope {
 
     fun syncDelayTime(): Duration
 
-    fun showSyncStatus(): Boolean
+    fun syncStatusIsEnabled(): Boolean
 
     private enum class Status {
         IDLE,

@@ -28,8 +28,8 @@ private val INDEXED_DOCUMENTS_COLUMNS = arrayOf("Indexed documents")
 class IndexerUI(
     override val documentsIndexer: DocumentsIndexer,
     private val syncDelayTime: Duration,
-    private val debugPanelIsEnabled: Boolean,
-    private val showSyncStatus: Boolean
+    private val syncStatusIsEnabled: Boolean,
+    private val debugPanelIsEnabled: Boolean
 ) : JFrame("TextIndexer"),
     Indexer {
 
@@ -166,8 +166,8 @@ class IndexerUI(
         return syncDelayTime
     }
 
-    override fun showSyncStatus(): Boolean {
-        return showSyncStatus
+    override fun syncStatusIsEnabled(): Boolean {
+        return syncStatusIsEnabled
     }
 
     override fun setActionStatus(

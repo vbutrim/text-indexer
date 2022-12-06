@@ -15,8 +15,8 @@ fun main(args: Array<String>) {
     IndexerUI(
         documentsIndexer,
         Duration.ofSeconds(parsedArgs.getLongValue(Args.Arg.Type.SYNC_DELAY_TIME_IN_SECONDS) ?: 10),
-        parsedArgs.getBooleanValue(Args.Arg.Type.DEBUG_PANEL_IS_ENABLED) ?: false,
-        parsedArgs.getBooleanValue(Args.Arg.Type.SHOW_SYNC_STATUS) ?: false
+        parsedArgs.getBooleanValue(Args.Arg.Type.SYNC_STATUS_IS_ENABLED) ?: false,
+        parsedArgs.getBooleanValue(Args.Arg.Type.DEBUG_PANEL_IS_ENABLED) ?: false
     )
     .apply {
         pack()
