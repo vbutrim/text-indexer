@@ -3,6 +3,9 @@ package com.vbutrim.file
 import java.nio.file.Path
 import kotlin.io.path.pathString
 
+/**
+ * This is wrapper not to operate #toAbsolutePath() in every place
+ */
 class AbsolutePath private constructor(private val absolutePath: Path) {
     companion object {
         fun cons(path: Path): AbsolutePath {
@@ -38,13 +41,13 @@ class AbsolutePath private constructor(private val absolutePath: Path) {
         var subDirPath = getRoot()
         val allDirs = mutableListOf<AbsolutePath>()
             .let {
-                it.add(cons(subDirPath))
+                it.add(subDirPath.asAbsolutePath())
                 it
             }
 
         for (subDir in asPath()) {
             subDirPath = subDirPath.resolve(subDir)
-            allDirs.add(cons(subDirPath))
+            allDirs.add(subDirPath.asAbsolutePath())
         }
 
         return allDirs

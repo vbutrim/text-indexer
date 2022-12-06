@@ -69,24 +69,23 @@ class DocumentsIndexer(
         toIndex: List<AbsolutePath>,
         indexedItemsFilter: IndexedItemsFilter,
         updateResults: suspend (List<IndexedItem>) -> Unit
-    ): Deferred<Result> =
-        coroutineScope {
-            async {
-                if (!isActive || toIndex.isEmpty()) {
-                    return@async Result.Nothing
-                }
-
-                val updated: Result
-                try {
-                    mutex.lock()
-                    log.debug("updateWithAsync() method executing")
-                    updated = updateWith(toIndex, indexedItemsFilter, updateResults)
-                } finally {
-                    mutex.unlock()
-                }
-                return@async updated
+    ): Deferred<Result> = coroutineScope {
+        async {
+            if (!isActive || toIndex.isEmpty()) {
+                return@async Result.Nothing
             }
+
+            val updated: Result
+            try {
+                mutex.lock()
+                log.debug("updateWithAsync() method executing")
+                updated = updateWith(toIndex, indexedItemsFilter, updateResults)
+            } finally {
+                mutex.unlock()
+            }
+            return@async updated
         }
+    }
 
     private suspend fun updateWith(
         toIndex: List<AbsolutePath>,
@@ -109,8 +108,7 @@ class DocumentsIndexer(
             updateResults
         )
 
-        filesAndDirs
-            .getAllFilesUnique()
+        filesAndDirs.getAllFilesUnique()
             .map { consJobToIndexFileAndRun(actor, it) }
             .joinAll()
 
@@ -122,15 +120,11 @@ class DocumentsIndexer(
     }
 
     private fun log(filesAndDirs: FilesAndDirs) {
-        log.debug(
-            String.format("Split on files and dirs:\nFiles: %s\nDirs: %s",
-                filesAndDirs.files.map { "\n" + it.getPath() },
-                filesAndDirs.dirs.flatMap {
-                    listOf("\n" + it.path)
-                        .plus(it.files.map { file -> "\n\t" + file.getPath() })
-                }
-            )
-        )
+        log.debug(String.format("Split on files and dirs:\nFiles: %s\nDirs: %s",
+            filesAndDirs.files.map { "\n" + it.getPath() },
+            filesAndDirs.dirs.flatMap {
+                listOf("\n" + it.path).plus(it.files.map { file -> "\n\t" + file.getPath() })
+            }))
     }
 
     private fun CoroutineScope.consJobToIndexFileAndRun(
@@ -200,26 +194,25 @@ class DocumentsIndexer(
         filesToRemove: List<AbsolutePath>,
         dirsToRemove: List<AbsolutePath>,
         indexedItemsFilter: IndexedItemsFilter
-    ): Deferred<Result> =
-        coroutineScope {
-            async {
-                if (!isActive) {
-                    return@async Result.Nothing
-                }
-
-                val result: Result
-                try {
-                    mutex.lock()
-                    log.debug("removeAsync() method executing")
-
-                    result = remove(filesToRemove, dirsToRemove, indexedItemsFilter)
-                } finally {
-                    mutex.unlock()
-                }
-
-                return@async result
+    ): Deferred<Result> = coroutineScope {
+        async {
+            if (!isActive) {
+                return@async Result.Nothing
             }
+
+            val result: Result
+            try {
+                mutex.lock()
+                log.debug("removeAsync() method executing")
+
+                result = remove(filesToRemove, dirsToRemove, indexedItemsFilter)
+            } finally {
+                mutex.unlock()
+            }
+
+            return@async result
         }
+    }
 
     private fun remove(
         filesToRemove: List<AbsolutePath>,
@@ -257,25 +250,27 @@ class DocumentsIndexer(
         index.remove(removedDocumentIds)
     }
 
-    suspend fun syncIndexedItemsAsync(indexedItemsFilter: IndexedItemsFilter, onStartToSync: suspend () -> Unit): Deferred<Result> =
-        coroutineScope {
-            async {
-                if (!isActive) {
-                    return@async Result.Nothing
-                }
-
-                val synced: Result
-                try {
-                    mutex.lock()
-                    log.debug("syncIndexedItemsAsync() method executing")
-                    onStartToSync.invoke()
-                    synced = syncIndexedItems(indexedItemsFilter)
-                } finally {
-                    mutex.unlock()
-                }
-                return@async synced
+    suspend fun syncIndexedItemsAsync(
+        indexedItemsFilter: IndexedItemsFilter,
+        onStartToSync: suspend () -> Unit
+    ): Deferred<Result> = coroutineScope {
+        async {
+            if (!isActive) {
+                return@async Result.Nothing
             }
+
+            val synced: Result
+            try {
+                mutex.lock()
+                log.debug("syncIndexedItemsAsync() method executing")
+                onStartToSync.invoke()
+                synced = syncIndexedItems(indexedItemsFilter)
+            } finally {
+                mutex.unlock()
+            }
+            return@async synced
         }
+    }
 
     private suspend fun syncIndexedItems(
         indexedItemsFilter: IndexedItemsFilter
@@ -289,11 +284,12 @@ class DocumentsIndexer(
 
         val actor = indexerActor(
             indexedItemsFilter,
-            (indexedDocuments.getIndexedItems(IndexedItemsFilter.ANY)).toMutableList()
+            indexedDocuments
+                .getIndexedItems(IndexedItemsFilter.ANY)
+                .toMutableList()
         ) {}
 
-        toSync
-            .filesToAdd
+        toSync.filesToAdd
             .map { consJobToIndexFileAndRun(actor, it) }
             .joinAll()
 

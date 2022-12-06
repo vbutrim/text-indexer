@@ -1,6 +1,7 @@
 package com.vbutrim.file
 
 import com.vbutrim.fightClubAbsolutePath
+import com.vbutrim.practicalGuideToHappinessAbsolutePath
 import com.vbutrim.starWarsAbsolutePath
 import com.vbutrim.textsDirectoryPath
 import org.junit.jupiter.api.Assertions
@@ -10,22 +11,22 @@ internal class FileManagerTest {
 
     @Test
     fun shouldSplitOnFilesAndDirs() {
-        withNewTempDir { dir ->
+        withNewTempDir { tempDir ->
             // Given
-            val tempFile = dir.child("temp_file")
+            val tempFile = tempDir.child("temp_file")
             tempFile.createNewFile()
 
             // When
             val result = FileManager.splitOnFilesAndDirs(
-                listOf(tempFile.toPath(), textsDirectoryPath).map { AbsolutePath.cons(it) }
+                listOf(tempFile.toPath(), textsDirectoryPath).map { it.asAbsolutePath() }
             )
 
             // Then
-            Assertions.assertEquals(listOf(AbsolutePath.cons(tempFile.toPath())), result.files.map { it.getPath() })
-            Assertions.assertEquals(listOf(AbsolutePath.cons(textsDirectoryPath)), result.dirs.map { it.path })
+            Assertions.assertEquals(listOf(tempFile.asAbsolutePath()), result.files.map { it.getPath() })
+            Assertions.assertEquals(listOf(textsDirectoryPath.asAbsolutePath()), result.dirs.map { it.path })
             Assertions.assertEquals(
-                listOf(fightClubAbsolutePath, starWarsAbsolutePath),
-                result.dirs.flatMap { it.files.map { it.getPath() } }
+                listOf(fightClubAbsolutePath, practicalGuideToHappinessAbsolutePath, starWarsAbsolutePath),
+                result.dirs.flatMap { dir -> dir.files.map { it.getPath() } }
             )
         }
     }

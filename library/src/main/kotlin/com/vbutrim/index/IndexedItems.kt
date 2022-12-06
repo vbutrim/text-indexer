@@ -7,7 +7,7 @@ fun List<IndexedItem>.flatMappedFilesInDirs(): List<IndexedItem> {
                 listOf(it)
             }
             is IndexedItem.Dir -> {
-                listOf(IndexedItem.Dir(it.path, this.flatMappedFiles()))
+                listOf(IndexedItem.Dir(it.path, it.nested.flatMappedFiles()))
             }
         }
     }
@@ -20,7 +20,7 @@ fun List<IndexedItem>.flatMappedFiles(): List<IndexedItem> {
                 listOf(it)
             }
             is IndexedItem.Dir -> {
-                this.flatMappedFiles()
+                it.nested.flatMappedFiles()
             }
         }
     }

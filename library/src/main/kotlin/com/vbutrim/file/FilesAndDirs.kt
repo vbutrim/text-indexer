@@ -33,7 +33,7 @@ class FilesAndDirs(val files: List<File>, val dirs: List<Dir>) {
         }
 
         fun getPath(): AbsolutePath {
-            return AbsolutePath.cons(file.toPath())
+            return file.asAbsolutePath()
         }
 
         fun readModificationTime(): Instant {

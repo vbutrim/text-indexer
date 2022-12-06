@@ -6,11 +6,15 @@ import java.util.*
 
 fun File.readModificationTime(): Instant = Instant.ofEpochMilli(this.lastModified())
 
-fun <R> withNewTempDir(func: (dir: File) -> R): R {
+fun File.asAbsolutePath(): AbsolutePath {
+    return this.toPath().asAbsolutePath()
+}
+
+fun <R> withNewTempDir(func: (tempDir: File) -> R): R {
     return withNewTempDir("text-indexer", func)
 }
 
-fun <R> withNewTempDir(prefix: String, func: (dir: File) -> R): R {
+fun <R> withNewTempDir(prefix: String, func: (tempDir: File) -> R): R {
     val tempDir: File = createNewTmpDir(prefix)
 
     return try {

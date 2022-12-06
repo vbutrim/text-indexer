@@ -1,6 +1,7 @@
 package com.vbutrim.index.ui
 
 import com.vbutrim.file.AbsolutePath
+import com.vbutrim.file.asAbsolutePath
 import com.vbutrim.index.DocumentsIndexer
 import com.vbutrim.index.IndexedItem
 import com.vbutrim.index.IndexedItemsFilter
@@ -122,7 +123,7 @@ class IndexerUI(
 
         if (result == JFileChooser.APPROVE_OPTION) {
             val selectedFiles = fileChooser.selectedFiles
-                .map { AbsolutePath.cons(it.toPath()) }
+                .map { it.asAbsolutePath() }
                 .toList()
             log.debug("Selected files: $selectedFiles")
             return selectedFiles
@@ -142,7 +143,7 @@ class IndexerUI(
 
     override fun indexedItemsFilter(): IndexedItemsFilter {
         return if (userSelectionOnlyCheckBox.isSelected) {
-            IndexedItemsFilter.MARKED_AS_SOURCES_ONLY
+            IndexedItemsFilter.SOURCES_ONLY
         } else {
             IndexedItemsFilter.ANY
         }
@@ -262,7 +263,7 @@ class IndexerUI(
         fun getSelectedPaths(): Pair<List<AbsolutePath>, List<AbsolutePath>> {
             val selectedRows = getSelectedItems(0)
             val dirsAndFiles = selectedRows
-                .map { Pair(AbsolutePath.cons(Path.of(it.removePrefix(DIR_PREFIX))), it.startsWith(DIR_PREFIX)) }
+                .map { Pair(Path.of(it.removePrefix(DIR_PREFIX)).asAbsolutePath(), it.startsWith(DIR_PREFIX)) }
                 .partition { it.second }
 
             return Pair(

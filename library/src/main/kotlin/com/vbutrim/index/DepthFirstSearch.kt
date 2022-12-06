@@ -1,6 +1,6 @@
 package com.vbutrim.index
 
-import com.vbutrim.file.AbsolutePath
+import com.vbutrim.file.asAbsolutePath
 import com.vbutrim.index.file.ToRemove
 import java.nio.file.Path
 
@@ -47,7 +47,7 @@ internal abstract class DepthFirstSearch {
             }
 
             if (current.isIndexed() && (indexedItemsFilter.isAny() || !current.isNestedWithDir())) {
-                return listOf(IndexedItem.Dir(AbsolutePath.cons(path), items))
+                return listOf(IndexedItem.Dir(path.asAbsolutePath(), items))
             }
 
             return items
