@@ -5,11 +5,18 @@ import com.vbutrim.file.FileManager
 import com.vbutrim.file.FilesAndDirs
 import com.vbutrim.file.readModificationTime
 import com.vbutrim.index.IndexedItem
+import com.vbutrim.index.flatMappedFilesInDirs
 import java.io.File
 import java.time.Instant
 
 abstract class IndexedFileManager {
     companion object {
+        /**
+         * If there is a file, which is going to be removed and still exists in the directory, there is need to mark
+         * this directory as not to be indexed fully, only left files that are present already in the indexed documents.
+         * The same is for directories: if existing directory is removed, then parent directories should be marked as not
+         * to be indexed.
+         */
         fun defineItemsToRemove(
             filesToRemove: List<AbsolutePath>,
             dirsToRemove: List<AbsolutePath>,
@@ -67,40 +74,20 @@ abstract class IndexedFileManager {
             }
         }
 
+        /**
+         * Defines items to sync based on actual state of the file system:
+         * - new added files / directories;
+         * - removed files / directories;
+         * - files that has been changed (based on last modification time).
+         */
         fun defineItemsToSync(indexedItems: List<IndexedItem>): ToSync {
             val toSyncBuilder = ToSync.builder()
-            defineItemsToSync(flatMappedFiledInDirs(indexedItems), toSyncBuilder)
+            defineItemsToSync(indexedItems, toSyncBuilder)
             return toSyncBuilder.build()
         }
 
-        private fun flatMappedFiledInDirs(items: List<IndexedItem>): List<IndexedItem> {
-            return items.flatMap {
-                when (it) {
-                    is IndexedItem.File -> {
-                        listOf(it)
-                    }
-                    is IndexedItem.Dir -> {
-                        listOf(IndexedItem.Dir(it.path, flatMappedFiles(it.nested)))
-                    }
-                }
-            }
-        }
-
-        private fun flatMappedFiles(items: List<IndexedItem>): List<IndexedItem> {
-            return items.flatMap {
-                when (it) {
-                    is IndexedItem.File -> {
-                        listOf(it)
-                    }
-                    is IndexedItem.Dir -> {
-                        flatMappedFiles(it.nested)
-                    }
-                }
-            }
-        }
-
-        private fun defineItemsToSync(flatMapped: List<IndexedItem>, toSyncBuilder: ToSync.Builder) {
-            for (indexedItem in flatMapped) {
+        private fun defineItemsToSync(indexedItems: List<IndexedItem>, toSyncBuilder: ToSync.Builder) {
+            for (indexedItem in indexedItems.flatMappedFilesInDirs()) {
                 when (indexedItem) {
                     is IndexedItem.File -> {
                         addFileToSyncIfApplicable(indexedItem, toSyncBuilder)

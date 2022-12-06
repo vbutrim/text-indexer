@@ -2,6 +2,9 @@ package com.vbutrim.index
 
 import java.util.*
 
+/**
+ * This is inverted index, which stores "token to ids of documents, which contain such token" mapping
+ */
 class Index {
     private val documentIdsByToken: MutableMap<String, MutableSet<Int>> = HashMap()
 

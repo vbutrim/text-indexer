@@ -14,6 +14,10 @@ sealed class IndexedItem(open val path: AbsolutePath) {
         override val path: AbsolutePath,
         val id: Int,
         private var modificationTime: Instant,
+        /**
+         * Defines if file is marked as independent source to index of it's indexed as nested in directory,
+         * that is marked as source
+         */
         private var isNestedWithDir: Boolean
     ) : IndexedItem(path) {
         companion object {
@@ -34,6 +38,10 @@ sealed class IndexedItem(open val path: AbsolutePath) {
             this.modificationTime = modificationTime
         }
 
+        /**
+         * The simplest approach is based on modification time comparison. We can also look at calculated content hash
+         * to define if it has been changed.
+         */
         fun isOutDated(lastModificationTime: Instant): Boolean {
             return modificationTime.isBefore(lastModificationTime)
         }

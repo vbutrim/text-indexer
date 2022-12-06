@@ -5,11 +5,24 @@ import com.vbutrim.file.FilesAndDirs
 import com.vbutrim.index.file.ToRemove
 import java.nio.file.Path
 
+/**
+ * Stores items (files and directories), which have been marked to index. Not to store links in inverted index each file
+ * has id, which is actually stored in the mapping.
+ * To optimize walking through directories and files, trie (prefix tree) algorithm is used to store paths as a graph.
+ * @see Index
+ */
 class IndexedDocuments {
     private val root: Node.Dir = Node.Dir.notIndexed()
+
+    /**
+     * Not to walk the trie on each #getFileById() request and quickly make a response
+     */
     private val fileNodeById: MutableMap<Int, Node.File> = HashMap()
     private var nextId: Int = 0
 
+    /**
+     * Creates directory node if it's not created yet and marks it as an independent source.
+     */
     fun add(dir: FilesAndDirs.Dir) {
         computeDirNode(dir.getParent())
             .computeIfAbsent(dir.getName()) { Node.Dir.indexedIndependently() }
@@ -24,6 +37,9 @@ class IndexedDocuments {
             }
     }
 
+    /**
+     * Creates file node if it's not created yet and marks it as as independent source.
+     */
     fun add(
         document: Document.Tokenized,
         isNestedWithDir: Boolean
@@ -53,6 +69,7 @@ class IndexedDocuments {
     fun getFileById(id: Int): IndexedItem.File? {
         return fileNodeById[id]?.asFile()
     }
+
 
     fun getFileByPath(path: AbsolutePath): IndexedItem.File? {
         return getDirNodeOrNull(path)?.getOrNull(path.getFileName().toString())?.let {

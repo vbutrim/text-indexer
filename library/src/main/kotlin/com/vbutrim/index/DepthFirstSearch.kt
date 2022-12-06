@@ -4,10 +4,14 @@ import com.vbutrim.file.AbsolutePath
 import com.vbutrim.index.file.ToRemove
 import java.nio.file.Path
 
+/**
+ * This is a helper to walk through the trie.
+ * @see IndexedDocuments
+ */
 internal abstract class DepthFirstSearch {
     companion object {
         /**
-         * @implNote start dfs with root's children to construct path correctly.
+         * @implNote it's needed to start dfs with root's children to construct path correctly.
          */
         fun getAllIndexedPaths(root: Node.Dir, indexedItemsFilter: IndexedItemsFilter): List<IndexedItem> {
             return root
