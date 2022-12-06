@@ -259,6 +259,10 @@ interface Indexer : CoroutineScope {
      */
     fun addSyncIndexedDocumentsListener(listener: () -> Unit)
 
+    /**
+     * @param nextActionIsEnabledDuringSync not to freeze UI during sync in the background. As there is mutex, which defines
+     * critical section on each external method, there wouldn't be any concurrency issue
+     */
     suspend fun syncIndexedDocuments(nextActionIsEnabledDuringSync: Boolean) = coroutineScope {
         try {
             log.debug("Syncing indexed documents")
