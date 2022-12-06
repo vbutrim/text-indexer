@@ -2,10 +2,16 @@ package com.vbutrim.index
 
 import com.vbutrim.*
 import com.vbutrim.file.AbsolutePath
+import com.vbutrim.file.asAbsolutePath
+import com.vbutrim.file.child
+import com.vbutrim.file.withNewTempDirSuspendable
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import java.io.File
 
 @ExperimentalCoroutinesApi
 internal class DocumentsIndexerTest {
@@ -140,6 +146,109 @@ internal class DocumentsIndexerTest {
                 it.toList()
             },
             finalIndexedItems.flatMappedFiles().map { it.path }
+        )
+    }
+
+    @Test
+    fun shouldSyncNewFileAsync() = runTest {
+        withNewTempDirSuspendable { tempDir ->
+            // Given
+            val documentsIndexer = documentsIndexer()
+
+            documentsIndexer
+                .updateWithAsync(listOf(tempDir.asAbsolutePath()), IndexedItemsFilter.ANY) {}
+                .await()
+
+            val tempFile = tempDir.child("temp_file")
+            withContext(Dispatchers.IO) {
+                tempFile.createNewFile()
+            }
+
+            tempFile.writeText("Be curious, not judgemental")
+
+            // When
+            val result = documentsIndexer
+                .syncIndexedItemsAsync(IndexedItemsFilter.ANY) {}
+                .await()
+
+            // Then
+            assertResultContainsTempDirOnly(result, tempDir, tempFile)
+            assertTempFileIsIndexed(documentsIndexer, tempFile)
+        }
+    }
+
+    @Test
+    fun shouldSyncRemovedFileAsync() = runTest {
+        withNewTempDirSuspendable { tempDir ->
+            // Given
+            val documentsIndexer = documentsIndexer()
+
+            val tempFile = tempDir.child("temp_file")
+            withContext(Dispatchers.IO) {
+                tempFile.createNewFile()
+            }
+
+            tempFile.writeText("Be curious, not judgemental")
+
+
+            documentsIndexer
+                .updateWithAsync(listOf(tempDir.asAbsolutePath()), IndexedItemsFilter.ANY) {}
+                .await()
+
+            assertTempFileIsIndexed(documentsIndexer, tempFile)
+
+            tempFile.delete()
+
+            // When
+            val result = documentsIndexer
+                .syncIndexedItemsAsync(IndexedItemsFilter.ANY) {}
+                .await()
+
+            // Then
+            assertResultContainsTempDirOnly(result, tempDir, null)
+            assertTempFileIsNotIndexed(documentsIndexer, tempFile)
+        }
+    }
+
+    private fun assertResultContainsTempDirOnly(
+        result: DocumentsIndexer.Result,
+        tempDir: File,
+        tempFile: File?
+    ) {
+        Assertions.assertTrue(result is DocumentsIndexer.Result.Some)
+
+        val finalIndexedItems = (result as DocumentsIndexer.Result.Some).finalIndexedItems
+
+        Assertions.assertEquals(
+            listOf(tempDir.asAbsolutePath()),
+            finalIndexedItems.map { it.path }
+        )
+
+        if (tempFile != null) {
+            Assertions.assertEquals(
+                listOf(tempFile.asAbsolutePath()),
+                finalIndexedItems.flatMappedFiles().map { it.path }
+            )
+        } else {
+            Assertions.assertTrue(finalIndexedItems.flatMappedFiles().map { it.path }.isEmpty())
+        }
+    }
+
+    private suspend fun assertTempFileIsIndexed(documentsIndexer: DocumentsIndexer, tempFile: File) {
+        Assertions.assertEquals(
+            listOf(tempFile.asAbsolutePath()),
+            documentsIndexer
+                .getDocumentThatContainTokenPathsAsync(listOf("judgemental", "curious"))
+                .await()
+        )
+    }
+
+    private suspend fun assertTempFileIsNotIndexed(documentsIndexer: DocumentsIndexer, tempFile: File) {
+        Assertions.assertTrue(
+            documentsIndexer
+                .getDocumentThatContainTokenPathsAsync(listOf("judgemental", "curious"))
+                .await()
+                .isEmpty()
         )
     }
 }

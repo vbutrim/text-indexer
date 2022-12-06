@@ -21,14 +21,19 @@ interface Indexer : CoroutineScope {
     val job: Job
     val documentsIndexer: DocumentsIndexer
 
-    override val coroutineContext: CoroutineContext
-        get() = job + Dispatchers.Main
+    val mainDispatcher: CoroutineDispatcher
+        get() = Dispatchers.Main
 
+    val defaultDispatcher: CoroutineDispatcher
+        get() = Dispatchers.Default
+
+    override val coroutineContext: CoroutineContext
+        get() = job + mainDispatcher
+
+    /**
+     * @return launched background jobs
+     */
     fun init() {
-        addOnWindowClosingListener {
-            job.cancel()
-            exitProcess(0)
-        }
         addSearchListener {
             updateDocumentsThatContainTerms(true)
         }
@@ -42,16 +47,28 @@ interface Indexer : CoroutineScope {
             updateIndexedDocuments()
         }
         addSyncIndexedDocumentsListener {
-            launch(Dispatchers.Default) {
+            launch(defaultDispatcher) {
                 syncIndexedDocuments(false)
             }
         }
 
-        launch(Dispatchers.Default) {
-            executePeriodically(syncDelayTime()) {
-                syncIndexedDocuments(true)
-            }
+        val backgroundJobs = launchBackgroundJobs()
+
+        addOnWindowClosingListener {
+            job.cancel()
+            backgroundJobs.forEach { it.cancel() }
+            exitProcess(0)
         }
+    }
+
+    fun launchBackgroundJobs(): List<Job> {
+        return listOf(
+            launch(defaultDispatcher) {
+                executePeriodically(syncDelayTime()) {
+                    syncIndexedDocuments(true)
+                }
+            }
+        )
     }
 
     fun setStatus(text: String, iconRunning: Boolean)
@@ -63,7 +80,7 @@ interface Indexer : CoroutineScope {
      */
     fun addSearchListener(listener: () -> Unit)
 
-    private fun updateDocumentsThatContainTerms(updateStatus: Boolean) {
+    fun updateDocumentsThatContainTerms(updateStatus: Boolean) {
         val tokens = getTokensToSearch()
 
         if (tokens.isEmpty()) {
@@ -78,12 +95,12 @@ interface Indexer : CoroutineScope {
         }
 
         val startTime = System.currentTimeMillis()
-        launch(Dispatchers.Default) {
+        launch(defaultDispatcher) {
             val documents = documentsIndexer
                 .getDocumentThatContainTokenPathsAsync(tokens)
                 .await()
 
-            withContext(Dispatchers.Main) {
+            withContext(mainDispatcher) {
                 if (documents.isNotEmpty()) {
                     updateDocumentsThatContainTerms(documents)
                 }
@@ -144,7 +161,7 @@ interface Indexer : CoroutineScope {
      */
     fun addGetDocumentsToIndexListener(listener: () -> Unit)
 
-    private fun addDocumentsToIndex() {
+    fun addDocumentsToIndex() {
         try {
             val pathsToIndex = getDocumentsToIndex()
 
@@ -159,16 +176,16 @@ interface Indexer : CoroutineScope {
             updateStatus(Status.INDEX_IN_PROGRESS)
 
             val startTime = System.currentTimeMillis()
-            launch(Dispatchers.Default) {
+            launch(defaultDispatcher) {
                 val updated = documentsIndexer
                     .updateWithAsync(pathsToIndex, indexedItemsFilter()) {
-                        withContext(Dispatchers.Main) {
+                        withContext(mainDispatcher) {
                             updateIndexedDocuments(it)
                         }
                     }
                     .await()
 
-                withContext(Dispatchers.Main) {
+                withContext(mainDispatcher) {
                     updateIndexedDocumentsAndEnableNextActions(updated, startTime = startTime)
                 }
             }
@@ -209,14 +226,14 @@ interface Indexer : CoroutineScope {
 
     fun addUserSelectionOnlyListener(listener: () -> Unit)
 
-    private fun updateIndexedDocuments() {
+    fun updateIndexedDocuments() {
         try {
             setActionStatus(nextActionIsEnabled = false)
 
-            launch(Dispatchers.Default) {
+            launch(defaultDispatcher) {
                 val indexedDocuments = documentsIndexer.getIndexedItems(indexedItemsFilter())
 
-                withContext(Dispatchers.Main) {
+                withContext(mainDispatcher) {
                     updateIndexedDocuments(indexedDocuments)
                     setActionStatus(nextActionIsEnabled = true)
                 }
@@ -232,7 +249,7 @@ interface Indexer : CoroutineScope {
 
     fun getIndexedDocumentsToRemove(): ToRemove
 
-    private fun removeIndexedDocuments() {
+    fun removeIndexedDocuments() {
         try {
             val toRemove = getIndexedDocumentsToRemove()
 
@@ -244,12 +261,12 @@ interface Indexer : CoroutineScope {
             updateStatus(Status.INDEX_IN_PROGRESS)
 
             val startTime = System.currentTimeMillis()
-            launch(Dispatchers.Default) {
+            launch(defaultDispatcher) {
                 val removed = documentsIndexer
                     .removeAsync(toRemove.files, toRemove.dirs, indexedItemsFilter())
                     .await()
 
-                withContext(Dispatchers.Main) {
+                withContext(mainDispatcher) {
                     updateIndexedDocumentsAndEnableNextActions(removed, startTime = startTime) {
                         updateDocumentsThatContainTerms(false)
                     }
@@ -281,7 +298,7 @@ interface Indexer : CoroutineScope {
 
             val synced = documentsIndexer
                 .syncIndexedItemsAsync(indexedItemsFilter()) {
-                    withContext(Dispatchers.Main) {
+                    withContext(mainDispatcher) {
                         if (!nextActionIsEnabledDuringSync) {
                             setActionStatus(false)
                         }
@@ -292,13 +309,13 @@ interface Indexer : CoroutineScope {
                 }
                 .await()
 
-            withContext(Dispatchers.Main) {
+            withContext(mainDispatcher) {
                 updateIndexedDocumentsAndEnableNextActions(synced, syncStatusIsEnabled(), Status.SYNC_COMPLETED) {
                     updateDocumentsThatContainTerms(false)
                 }
             }
         } catch (exception: Exception) {
-            withContext(Dispatchers.Main) {
+            withContext(mainDispatcher) {
                 showErrorStatusAndEnableNextAction(exception)
             }
         }
