@@ -30,7 +30,7 @@ interface Indexer : CoroutineScope {
             exitProcess(0)
         }
         addSearchListener {
-            updateDocumentsThatContainTerms()
+            updateDocumentsThatContainTerms(true)
         }
         addGetDocumentsToIndexListener {
             addDocumentsToIndex()
@@ -63,7 +63,7 @@ interface Indexer : CoroutineScope {
      */
     fun addSearchListener(listener: () -> Unit)
 
-    private fun updateDocumentsThatContainTerms() {
+    private fun updateDocumentsThatContainTerms(updateStatus: Boolean) {
         val tokens = getTokensToSearch()
 
         if (tokens.isEmpty()) {
@@ -73,7 +73,9 @@ interface Indexer : CoroutineScope {
 
         setActionStatus(nextActionIsEnabled = false)
         updateDocumentsThatContainTerms(listOf())
-        updateStatus(Status.SEARCH_IN_PROGRESS)
+        if (updateStatus) {
+            updateStatus(Status.SEARCH_IN_PROGRESS)
+        }
 
         val startTime = System.currentTimeMillis()
         launch(Dispatchers.Default) {
@@ -86,7 +88,9 @@ interface Indexer : CoroutineScope {
                     updateDocumentsThatContainTerms(documents)
                 }
 
-                updateStatus(Status.SEARCH_COMPLETED, startTime)
+                if (updateStatus) {
+                    updateStatus(Status.SEARCH_COMPLETED, startTime)
+                }
                 setActionStatus(nextActionIsEnabled = true)
             }
         }
@@ -107,6 +111,8 @@ interface Indexer : CoroutineScope {
             Status.SEARCH_IN_PROGRESS -> "Searching: in progress$time"
             Status.INDEX_COMPLETED -> "Indexing: completed$time"
             Status.INDEX_IN_PROGRESS -> "Indexing: in progress$time"
+            Status.SYNC_COMPLETED -> "Syncing: completed$time"
+            Status.SYNC_IN_PROGRESS -> "Syncing: in progress$time"
             Status.SOMETHING_GOES_WRONG -> "Something goes wrong"
         }
 
@@ -116,6 +122,8 @@ interface Indexer : CoroutineScope {
             Status.SEARCH_IN_PROGRESS -> true
             Status.INDEX_COMPLETED -> false
             Status.INDEX_IN_PROGRESS -> true
+            Status.SYNC_COMPLETED -> false
+            Status.SYNC_IN_PROGRESS -> true
             Status.SOMETHING_GOES_WRONG -> false
         }
 
@@ -161,7 +169,7 @@ interface Indexer : CoroutineScope {
                     .await()
 
                 withContext(Dispatchers.Main) {
-                    updateIndexedDocumentsAndEnableNextActions(updated, startTime)
+                    updateIndexedDocumentsAndEnableNextActions(updated, true, startTime)
                 }
             }
         } catch (exception: Exception) {
@@ -177,6 +185,7 @@ interface Indexer : CoroutineScope {
 
     private fun updateIndexedDocumentsAndEnableNextActions(
         result: DocumentsIndexer.Result,
+        updateStatus: Boolean,
         startTime: Long? = null,
         onSomeResult: (() -> Unit)? = null
     ) {
@@ -187,7 +196,9 @@ interface Indexer : CoroutineScope {
                 onSomeResult?.invoke()
             }
         }
-        updateStatus(Status.INDEX_COMPLETED, startTime)
+        if (updateStatus) {
+            updateStatus(Status.INDEX_COMPLETED, startTime)
+        }
         setActionStatus(nextActionIsEnabled = true)
     }
 
@@ -209,7 +220,7 @@ interface Indexer : CoroutineScope {
                     setActionStatus(nextActionIsEnabled = true)
                 }
             }
-        } catch(exception: Exception) {
+        } catch (exception: Exception) {
             showErrorStatusAndEnableNextAction(exception)
         }
     }
@@ -238,8 +249,8 @@ interface Indexer : CoroutineScope {
                     .await()
 
                 withContext(Dispatchers.Main) {
-                    updateIndexedDocumentsAndEnableNextActions(removed, startTime) {
-                        updateDocumentsThatContainTerms()
+                    updateIndexedDocumentsAndEnableNextActions(removed, true, startTime) {
+                        updateDocumentsThatContainTerms(false)
                     }
                 }
             }
@@ -269,7 +280,9 @@ interface Indexer : CoroutineScope {
 
             withContext(Dispatchers.Main) {
                 setActionStatus(nextActionIsEnabledDuringSync)
-                updateStatus(Status.INDEX_IN_PROGRESS)
+                if (showSyncStatus()) {
+                    updateStatus(Status.INDEX_IN_PROGRESS)
+                }
             }
 
             val synced = documentsIndexer
@@ -277,8 +290,8 @@ interface Indexer : CoroutineScope {
                 .await()
 
             withContext(Dispatchers.Main) {
-                updateIndexedDocumentsAndEnableNextActions(synced) {
-                    updateDocumentsThatContainTerms()
+                updateIndexedDocumentsAndEnableNextActions(synced, showSyncStatus()) {
+                    updateDocumentsThatContainTerms(false)
                 }
             }
         } catch (exception: Exception) {
@@ -290,12 +303,16 @@ interface Indexer : CoroutineScope {
 
     fun syncDelayTime(): Duration
 
+    fun showSyncStatus(): Boolean
+
     private enum class Status {
         IDLE,
         SEARCH_COMPLETED,
         SEARCH_IN_PROGRESS,
         INDEX_COMPLETED,
         INDEX_IN_PROGRESS,
+        SYNC_COMPLETED,
+        SYNC_IN_PROGRESS,
         SOMETHING_GOES_WRONG
     }
 }
