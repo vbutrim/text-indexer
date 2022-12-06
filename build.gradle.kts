@@ -33,6 +33,7 @@ application {
  */
 tasks {
     val fatJar = register<Jar>("fatJar") {
+        group = "build"
         dependsOn.addAll(listOf("compileJava", "compileKotlin", "processResources")) // We need this for Gradle optimization to work
         archiveClassifier.set("standalone") // Naming the jar
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -43,7 +44,10 @@ tasks {
                 sourcesMain.output
         from(contents)
     }
-    build {
-        dependsOn(fatJar) // Trigger fat jar creation during build
+    register<Jar>("cleanFatJar") {
+        group = "build"
+
+        dependsOn(clean)
+        dependsOn(fatJar)
     }
 }
