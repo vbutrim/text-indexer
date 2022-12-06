@@ -147,11 +147,11 @@ class IndexerUI(
         }
     }
 
-    override fun addRemoveDocumentsToIndexListener(listener: () -> Unit) {
+    override fun addRemoveIndexedDocumentsListener(listener: () -> Unit) {
         removePathsFromIndexButton.addActionListener { listener() }
     }
 
-    override fun getDocumentsToIndexToRemove(): Indexer.ToRemove {
+    override fun getIndexedDocumentsToRemove(): Indexer.ToRemove {
         val toRemove = indexedDocuments.getSelectedPaths()
         return Indexer.ToRemove(toRemove.first, toRemove.second)
     }

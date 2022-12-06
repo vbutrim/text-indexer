@@ -35,21 +35,21 @@ interface Indexer : CoroutineScope {
         addGetDocumentsToIndexListener {
             addDocumentsToIndex()
         }
-        addRemoveDocumentsToIndexListener {
-            removeDocumentsToIndex()
+        addRemoveIndexedDocumentsListener {
+            removeIndexedDocuments()
         }
         addUserSelectionOnlyListener {
             updateIndexedDocuments()
         }
         addSyncIndexedDocumentsListener {
             launch(Dispatchers.Default) {
-                syncIndexedDocuments()
+                syncIndexedDocuments(false)
             }
         }
 
         launch(Dispatchers.Default) {
             executePeriodically(syncDelayTime()) {
-                syncIndexedDocuments()
+                syncIndexedDocuments(true)
             }
         }
     }
@@ -107,6 +107,7 @@ interface Indexer : CoroutineScope {
             Status.SEARCH_IN_PROGRESS -> "Searching: in progress$time"
             Status.INDEX_COMPLETED -> "Indexing: completed$time"
             Status.INDEX_IN_PROGRESS -> "Indexing: in progress$time"
+            Status.SOMETHING_GOES_WRONG -> "Something goes wrong"
         }
 
         val iconRunning = when (status) {
@@ -115,6 +116,7 @@ interface Indexer : CoroutineScope {
             Status.SEARCH_IN_PROGRESS -> true
             Status.INDEX_COMPLETED -> false
             Status.INDEX_IN_PROGRESS -> true
+            Status.SOMETHING_GOES_WRONG -> false
         }
 
         setStatus(text, iconRunning)
@@ -135,38 +137,58 @@ interface Indexer : CoroutineScope {
     fun addGetDocumentsToIndexListener(listener: () -> Unit)
 
     private fun addDocumentsToIndex() {
-        val pathsToIndex = getDocumentsToIndex()
+        try {
+            val pathsToIndex = getDocumentsToIndex()
 
-        if (pathsToIndex.isEmpty()) {
-            log.debug("Nothing has been chosen to index")
-            return
-        }
+            if (pathsToIndex.isEmpty()) {
+                log.debug("Nothing has been chosen to index")
+                return
+            }
 
-        log.debug(String.format("Going to update indexer with %s paths: %s", pathsToIndex.size, pathsToIndex))
+            log.debug(String.format("Going to update indexer with %s paths: %s", pathsToIndex.size, pathsToIndex))
 
-        setActionStatus(nextActionIsEnabled = false)
-        updateStatus(Status.INDEX_IN_PROGRESS)
+            setActionStatus(nextActionIsEnabled = false)
+            updateStatus(Status.INDEX_IN_PROGRESS)
 
-        val startTime = System.currentTimeMillis()
-        launch(Dispatchers.Default) {
-
-            val updated = documentsIndexer
-                .updateWithAsync(pathsToIndex, indexedItemsFilter()) {
-                    withContext(Dispatchers.Main) {
-                        updateIndexedDocuments(it)
+            val startTime = System.currentTimeMillis()
+            launch(Dispatchers.Default) {
+                val updated = documentsIndexer
+                    .updateWithAsync(pathsToIndex, indexedItemsFilter()) {
+                        withContext(Dispatchers.Main) {
+                            updateIndexedDocuments(it)
+                        }
                     }
-                }
-                .await()
+                    .await()
 
-            withContext(Dispatchers.Main) {
-                when (updated) {
-                    is DocumentsIndexer.Updated.Nothing -> {}
-                    is DocumentsIndexer.Updated.Some -> updateIndexedDocuments(updated.finalIndexedItems)
+                withContext(Dispatchers.Main) {
+                    updateIndexedDocumentsAndEnableNextActions(updated, startTime)
                 }
-                updateStatus(Status.INDEX_COMPLETED, startTime)
-                setActionStatus(nextActionIsEnabled = true)
+            }
+        } catch (exception: Exception) {
+            showErrorStatusAndEnableNextAction(exception)
+        }
+    }
+
+    private fun showErrorStatusAndEnableNextAction(exception: Exception) {
+        log.error("Something goes wrong", exception)
+        updateStatus(Status.SOMETHING_GOES_WRONG)
+        setActionStatus(nextActionIsEnabled = true)
+    }
+
+    private fun updateIndexedDocumentsAndEnableNextActions(
+        result: DocumentsIndexer.Result,
+        startTime: Long? = null,
+        onSomeResult: (() -> Unit)? = null
+    ) {
+        when (result) {
+            is DocumentsIndexer.Result.Nothing -> {}
+            is DocumentsIndexer.Result.Some -> {
+                updateIndexedDocuments(result.finalIndexedItems)
+                onSomeResult?.invoke()
             }
         }
+        updateStatus(Status.INDEX_COMPLETED, startTime)
+        setActionStatus(nextActionIsEnabled = true)
     }
 
     fun getDocumentsToIndex(): List<AbsolutePath>
@@ -176,50 +198,53 @@ interface Indexer : CoroutineScope {
     fun addUserSelectionOnlyListener(listener: () -> Unit)
 
     private fun updateIndexedDocuments() {
-        setActionStatus(nextActionIsEnabled = false)
+        try {
+            setActionStatus(nextActionIsEnabled = false)
 
-        launch(Dispatchers.Default) {
-            val indexedDocuments = documentsIndexer.getIndexedItems(indexedItemsFilter())
+            launch(Dispatchers.Default) {
+                val indexedDocuments = documentsIndexer.getIndexedItems(indexedItemsFilter())
 
-            withContext(Dispatchers.Main) {
-                updateIndexedDocuments(indexedDocuments)
-                setActionStatus(nextActionIsEnabled = true)
+                withContext(Dispatchers.Main) {
+                    updateIndexedDocuments(indexedDocuments)
+                    setActionStatus(nextActionIsEnabled = true)
+                }
             }
+        } catch(exception: Exception) {
+            showErrorStatusAndEnableNextAction(exception)
         }
     }
 
     fun indexedItemsFilter(): IndexedItemsFilter
 
-    fun addRemoveDocumentsToIndexListener(listener: () -> Unit)
+    fun addRemoveIndexedDocumentsListener(listener: () -> Unit)
 
-    fun getDocumentsToIndexToRemove(): ToRemove
+    fun getIndexedDocumentsToRemove(): ToRemove
 
-    private fun removeDocumentsToIndex() {
-        val toRemove = getDocumentsToIndexToRemove()
+    private fun removeIndexedDocuments() {
+        try {
+            val toRemove = getIndexedDocumentsToRemove()
 
-        if (toRemove.isEmpty()) {
-            return
-        }
-
-        setActionStatus(nextActionIsEnabled = false)
-        updateStatus(Status.INDEX_IN_PROGRESS)
-
-        launch(Dispatchers.Default) {
-
-            val removed = documentsIndexer
-                .removeAsync(toRemove.files, toRemove.dirs, indexedItemsFilter())
-                .await()
-
-            withContext(Dispatchers.Main) {
-                when (removed) {
-                    is DocumentsIndexer.Removed.Nothing -> {}
-                    is DocumentsIndexer.Removed.Some -> updateIndexedDocuments(removed.finalIndexedItems)
-                }
-
-                updateStatus(Status.INDEX_COMPLETED)
-                setActionStatus(nextActionIsEnabled = true)
-                updateDocumentsThatContainTerms()
+            if (toRemove.isEmpty()) {
+                return
             }
+
+            setActionStatus(nextActionIsEnabled = false)
+            updateStatus(Status.INDEX_IN_PROGRESS)
+
+            val startTime = System.currentTimeMillis()
+            launch(Dispatchers.Default) {
+                val removed = documentsIndexer
+                    .removeAsync(toRemove.files, toRemove.dirs, indexedItemsFilter())
+                    .await()
+
+                withContext(Dispatchers.Main) {
+                    updateIndexedDocumentsAndEnableNextActions(removed, startTime) {
+                        updateDocumentsThatContainTerms()
+                    }
+                }
+            }
+        } catch (exception: Exception) {
+            showErrorStatusAndEnableNextAction(exception)
         }
     }
 
@@ -234,29 +259,28 @@ interface Indexer : CoroutineScope {
      */
     fun addSyncIndexedDocumentsListener(listener: () -> Unit)
 
-    suspend fun syncIndexedDocuments() = coroutineScope {
-        log.debug("Syncing indexed documents")
+    suspend fun syncIndexedDocuments(nextActionIsEnabledDuringSync: Boolean) = coroutineScope {
+        try {
+            log.debug("Syncing indexed documents")
 
-        withContext(Dispatchers.Main) {
-            setActionStatus(nextActionIsEnabled = false)
-            updateStatus(Status.INDEX_IN_PROGRESS)
-        }
+            withContext(Dispatchers.Main) {
+                setActionStatus(nextActionIsEnabledDuringSync)
+                updateStatus(Status.INDEX_IN_PROGRESS)
+            }
 
-        val synced = documentsIndexer
-            .syncIndexedItemsAsync(indexedItemsFilter())
-            .await()
+            val synced = documentsIndexer
+                .syncIndexedItemsAsync(indexedItemsFilter())
+                .await()
 
-        withContext(Dispatchers.Main) {
-            when (synced) {
-                is DocumentsIndexer.Synced.Nothing -> {}
-                is DocumentsIndexer.Synced.Some -> {
-                    updateIndexedDocuments(synced.finalIndexedItems)
+            withContext(Dispatchers.Main) {
+                updateIndexedDocumentsAndEnableNextActions(synced) {
                     updateDocumentsThatContainTerms()
                 }
             }
-
-            setActionStatus(nextActionIsEnabled = true)
-            updateStatus(Status.INDEX_COMPLETED)
+        } catch (exception: Exception) {
+            withContext(Dispatchers.Main) {
+                showErrorStatusAndEnableNextAction(exception)
+            }
         }
     }
 
@@ -267,6 +291,7 @@ interface Indexer : CoroutineScope {
         SEARCH_COMPLETED,
         SEARCH_IN_PROGRESS,
         INDEX_COMPLETED,
-        INDEX_IN_PROGRESS
+        INDEX_IN_PROGRESS,
+        SOMETHING_GOES_WRONG
     }
 }

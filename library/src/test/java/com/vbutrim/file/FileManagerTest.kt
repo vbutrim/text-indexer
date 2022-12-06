@@ -1,7 +1,6 @@
 package com.vbutrim.file
 
 import com.vbutrim.fightClubAbsolutePath
-import com.vbutrim.resourcesDirectory
 import com.vbutrim.starWarsAbsolutePath
 import com.vbutrim.textsDirectoryPath
 import org.junit.jupiter.api.Assertions
@@ -11,11 +10,9 @@ internal class FileManagerTest {
 
     @Test
     fun shouldSplitOnFilesAndDirs() {
-        // Given
-        val tempFile = resourcesDirectory.child("temp_file")
-        require(!tempFile.exists())
-
-        try {
+        withNewTempDir { dir ->
+            // Given
+            val tempFile = dir.child("temp_file")
             tempFile.createNewFile()
 
             // When
@@ -30,8 +27,6 @@ internal class FileManagerTest {
                 listOf(fightClubAbsolutePath, starWarsAbsolutePath),
                 result.dirs.flatMap { it.files.map { it.getPath() } }
             )
-        } finally {
-            tempFile.delete()
         }
     }
 }

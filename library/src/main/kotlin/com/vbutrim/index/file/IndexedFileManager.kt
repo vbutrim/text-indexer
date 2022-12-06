@@ -103,41 +103,55 @@ abstract class IndexedFileManager {
             for (indexedItem in flatMapped) {
                 when (indexedItem) {
                     is IndexedItem.File -> {
-                        val file = File(indexedItem.getPathAsString())
-                        if (!FileManager.fileExists(file)) {
-                            toSyncBuilder.addFileToRemove(indexedItem.path)
-                        } else if (indexedItem.isOutDated(file.readModificationTime())) {
-                            toSyncBuilder.addFileToAdd(
-                                FilesAndDirs.File.cons(
-                                    File(indexedItem.getPathAsString()),
-                                    indexedItem.isNestedWithDir()
-                                )
-                            )
-                        }
+                        addFileToSyncIfApplicable(indexedItem, toSyncBuilder)
                     }
                     is IndexedItem.Dir -> {
-                        val dir = File(indexedItem.getPathAsString())
-                        if (!FileManager.dirExists(dir)) {
-                            toSyncBuilder.addDirToRemove(indexedItem.path)
-                        } else {
-                            val dirDiff = DirDiff.cons(
-                                indexedItem.nested
-                                    .map {
-                                        require(it is IndexedItem.File) {
-                                            "not a file"
-                                        }
-                                        it
-                                    },
-                                FileManager
-                                    .getFilesInDir(dir)
-                                    .associateBy({ it.getPath() }, { it.readModificationTime() })
-                            )
-
-                            dirDiff.filesToAdd().forEach { toSyncBuilder.addFileToAdd(it) }
-                            dirDiff.filesToRemove().forEach { toSyncBuilder.addFileToRemove(it) }
-                        }
+                        defineItemsToSync(indexedItem, toSyncBuilder)
                     }
                 }
+            }
+        }
+
+        private fun addFileToSyncIfApplicable(
+            indexedFile: IndexedItem.File,
+            toSyncBuilder: ToSync.Builder
+        ) {
+            val file = File(indexedFile.getPathAsString())
+            if (!FileManager.fileExists(file)) {
+                toSyncBuilder.addFileToRemove(indexedFile.path)
+            } else if (indexedFile.isOutDated(file.readModificationTime())) {
+                toSyncBuilder.addFileToAdd(
+                    FilesAndDirs.File.cons(
+                        File(indexedFile.getPathAsString()),
+                        indexedFile.isNestedWithDir()
+                    )
+                )
+            }
+        }
+
+        private fun defineItemsToSync(
+            indexedDir: IndexedItem.Dir,
+            toSyncBuilder: ToSync.Builder
+        ) {
+            val dir = File(indexedDir.getPathAsString())
+            if (!FileManager.dirExists(dir)) {
+                toSyncBuilder.addDirToRemove(indexedDir.path)
+            } else {
+                val dirDiff = DirDiff.cons(
+                    indexedDir.nested
+                        .map {
+                            require(it is IndexedItem.File) {
+                                "not a file"
+                            }
+                            it
+                        },
+                    FileManager
+                        .getFilesInDir(dir)
+                        .associateBy({ it.getPath() }, { it.readModificationTime() })
+                )
+
+                dirDiff.filesToAdd().forEach { toSyncBuilder.addFileToAdd(it) }
+                dirDiff.filesToRemove().forEach { toSyncBuilder.addFileToRemove(it) }
             }
         }
 
