@@ -278,15 +278,17 @@ interface Indexer : CoroutineScope {
         try {
             log.debug("Syncing indexed documents")
 
-            withContext(Dispatchers.Main) {
-                setActionStatus(nextActionIsEnabledDuringSync)
-                if (showSyncStatus()) {
-                    updateStatus(Status.INDEX_IN_PROGRESS)
-                }
-            }
-
             val synced = documentsIndexer
-                .syncIndexedItemsAsync(indexedItemsFilter())
+                .syncIndexedItemsAsync(indexedItemsFilter()) {
+                    withContext(Dispatchers.Main) {
+                        if (!nextActionIsEnabledDuringSync) {
+                            setActionStatus(false)
+                        }
+                        if (showSyncStatus()) {
+                            updateStatus(Status.INDEX_IN_PROGRESS)
+                        }
+                    }
+                }
                 .await()
 
             withContext(Dispatchers.Main) {

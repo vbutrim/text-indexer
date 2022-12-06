@@ -257,7 +257,7 @@ class DocumentsIndexer(
         index.remove(removedDocumentIds)
     }
 
-    suspend fun syncIndexedItemsAsync(indexedItemsFilter: IndexedItemsFilter): Deferred<Result> =
+    suspend fun syncIndexedItemsAsync(indexedItemsFilter: IndexedItemsFilter, onStartToSync: suspend () -> Unit): Deferred<Result> =
         coroutineScope {
             async {
                 if (!isActive) {
@@ -268,6 +268,7 @@ class DocumentsIndexer(
                 try {
                     mutex.lock()
                     log.debug("syncIndexedItemsAsync() method executing")
+                    onStartToSync.invoke()
                     synced = syncIndexedItems(indexedItemsFilter)
                 } finally {
                     mutex.unlock()
