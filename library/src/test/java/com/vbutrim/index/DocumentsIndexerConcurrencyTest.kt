@@ -19,7 +19,7 @@ internal class DocumentsIndexerConcurrencyTest {
     companion object {
         private val logger: Logger = LoggerFactory.getLogger(DocumentsIndexerConcurrencyTest::class.java)
 
-        private const val testLaunchesNumber: Int = 100
+        private const val testLaunchesNumber: Int = 5
         private const val junkFilesPerLaunchCount = 100
     }
 
