@@ -35,6 +35,8 @@ to make simple queries to search tokens in chosen documents.
 
 ## Demo
 
+![](https://raw.githubusercontent.com/vbutrim/text-indexer/master/documentation/demo.gif)
+
 ### Scenario
 1. Add ./library/src/test/resources/texts dir as source to index.
 2. Make simple search queries.
