@@ -6,6 +6,8 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.io.File
 import java.util.*
 import kotlin.coroutines.CoroutineContext
@@ -14,6 +16,8 @@ import kotlin.coroutines.CoroutineContext
 internal class DocumentsIndexerConcurrencyTest {
 
     companion object {
+        private val logger: Logger = LoggerFactory.getLogger(DocumentsIndexerConcurrencyTest::class.java)
+
         private const val testLaunchesNumber: Int = 100
         private const val junkFilesPerLaunchCount = 1_000
     }
@@ -21,6 +25,8 @@ internal class DocumentsIndexerConcurrencyTest {
     @Test
     fun shouldHandleMultipleRequests() = runTest {
         for (i in 1..testLaunchesNumber) {
+            logger.info("Running $i launch")
+
             shouldHandleMultipleRequestSingleRun()
         }
     }

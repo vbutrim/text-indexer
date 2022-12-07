@@ -13,7 +13,6 @@ import kotlinx.coroutines.sync.Mutex
 import org.slf4j.Logger
 import java.util.*
 
-private val log: Logger = org.slf4j.LoggerFactory.getLogger(DocumentsIndexer::class.java)
 
 class DocumentsIndexer(
     private val documentTokenizer: DocumentTokenizer
@@ -21,6 +20,10 @@ class DocumentsIndexer(
     private val indexedDocuments = IndexedDocuments()
     private val index = Index()
     private val mutex: Mutex = Mutex()
+
+    companion object {
+        private val logger: Logger = org.slf4j.LoggerFactory.getLogger(DocumentsIndexer::class.java)
+    }
 
     suspend fun getIndexedItems(indexedItemsFilter: IndexedItemsFilter): List<IndexedItem> {
         val indexedItems: List<IndexedItem>
@@ -43,7 +46,7 @@ class DocumentsIndexer(
                 val documentPaths: List<AbsolutePath>
                 try {
                     mutex.lock()
-                    log.debug("updateWithAsync() method executing")
+                    logger.debug("updateWithAsync() method executing")
 
                     documentPaths = tokens
                         .map {
@@ -78,7 +81,7 @@ class DocumentsIndexer(
             val updated: Result
             try {
                 mutex.lock()
-                log.debug("updateWithAsync() method executing")
+                logger.debug("updateWithAsync() method executing")
                 updated = updateWith(toIndex, indexedItemsFilter, updateResults)
             } finally {
                 mutex.unlock()
@@ -120,7 +123,7 @@ class DocumentsIndexer(
     }
 
     private fun log(filesAndDirs: FilesAndDirs) {
-        log.debug(String.format("Split on files and dirs:\nFiles: %s\nDirs: %s",
+        logger.debug(String.format("Split on files and dirs:\nFiles: %s\nDirs: %s",
             filesAndDirs.files.map { "\n" + it.getPath() },
             filesAndDirs.dirs.flatMap {
                 listOf("\n" + it.path).plus(it.files.map { file -> "\n\t" + file.getPath() })
@@ -137,7 +140,7 @@ class DocumentsIndexer(
 
         indexerActor.send(IndexerMessage.AddDocument(document, file.isNestedWithDir))
 
-        log.debug("File added: " + file.getPath())
+        logger.debug("File added: " + file.getPath())
     }
 
     @OptIn(ObsoleteCoroutinesApi::class)
@@ -203,7 +206,7 @@ class DocumentsIndexer(
             val result: Result
             try {
                 mutex.lock()
-                log.debug("removeAsync() method executing")
+                logger.debug("removeAsync() method executing")
 
                 result = remove(filesToRemove, dirsToRemove, indexedItemsFilter)
             } finally {
@@ -262,7 +265,7 @@ class DocumentsIndexer(
             val synced: Result
             try {
                 mutex.lock()
-                log.debug("syncIndexedItemsAsync() method executing")
+                logger.debug("syncIndexedItemsAsync() method executing")
                 onStartToSync.invoke()
                 synced = syncIndexedItems(indexedItemsFilter)
             } finally {
@@ -278,7 +281,7 @@ class DocumentsIndexer(
         val toSync = getIndexedDocumentsToSync()
 
         if (toSync.isEmpty()) {
-            log.debug("Nothing to sync")
+            logger.debug("Nothing to sync")
             return@coroutineScope Result.Nothing
         }
 

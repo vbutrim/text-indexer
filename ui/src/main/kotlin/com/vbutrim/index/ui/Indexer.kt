@@ -15,7 +15,7 @@ import kotlin.system.exitProcess
 interface Indexer : CoroutineScope {
 
     companion object {
-        private val log: Logger = LoggerFactory.getLogger(Indexer::class.java)
+        private val logger: Logger = LoggerFactory.getLogger(Indexer::class.java)
     }
 
     val job: Job
@@ -166,11 +166,11 @@ interface Indexer : CoroutineScope {
             val pathsToIndex = getDocumentsToIndex()
 
             if (pathsToIndex.isEmpty()) {
-                log.debug("Nothing has been chosen to index")
+                logger.debug("Nothing has been chosen to index")
                 return
             }
 
-            log.debug(String.format("Going to update indexer with %s paths: %s", pathsToIndex.size, pathsToIndex))
+            logger.debug(String.format("Going to update indexer with %s paths: %s", pathsToIndex.size, pathsToIndex))
 
             setActionStatus(nextActionIsEnabled = false)
             updateStatus(Status.INDEX_IN_PROGRESS)
@@ -195,7 +195,7 @@ interface Indexer : CoroutineScope {
     }
 
     private fun showErrorStatusAndEnableNextAction(exception: Exception) {
-        log.error("Something goes wrong", exception)
+        logger.error("Something goes wrong", exception)
         updateStatus(Status.SOMETHING_GOES_WRONG)
         setActionStatus(nextActionIsEnabled = true)
     }
@@ -294,7 +294,7 @@ interface Indexer : CoroutineScope {
      */
     suspend fun syncIndexedDocuments(nextActionIsEnabledDuringSync: Boolean) = coroutineScope {
         try {
-            log.debug("Syncing indexed documents")
+            logger.debug("Syncing indexed documents")
 
             val synced = documentsIndexer
                 .syncIndexedItemsAsync(indexedItemsFilter()) {

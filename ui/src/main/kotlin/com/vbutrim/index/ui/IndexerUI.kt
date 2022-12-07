@@ -35,7 +35,7 @@ class IndexerUI(
     Indexer {
 
     companion object {
-        private val log: Logger = LoggerFactory.getLogger(IndexerUI::class.java)
+        private val logger: Logger = LoggerFactory.getLogger(IndexerUI::class.java)
     }
 
     private val tokensInput = JTextField(20).apply {
@@ -125,11 +125,11 @@ class IndexerUI(
             val selectedFiles = fileChooser.selectedFiles
                 .map { it.asAbsolutePath() }
                 .toList()
-            log.debug("Selected files: $selectedFiles")
+            logger.debug("Selected files: $selectedFiles")
             return selectedFiles
         }
 
-        log.debug("Cancel to select files")
+        logger.debug("Cancel to select files")
         return Collections.emptyList()
     }
 
@@ -205,9 +205,9 @@ class IndexerUI(
 
         protected fun set(items: List<Array<*>>) {
             if (items.isNotEmpty()) {
-                log.debug("Updating result with ${items.size} rows")
+                logger.debug("Updating result with ${items.size} rows")
             } else {
-                log.debug("Clearing result")
+                logger.debug("Clearing result")
             }
             tableModel.setDataVector(
                 items.toTypedArray(),
@@ -274,7 +274,7 @@ class IndexerUI(
     }
 
     private class StatusBar {
-        private val icon = createImageIcon(javaClass, "ajax-loader.gif", log)
+        private val icon = createImageIcon(javaClass, "ajax-loader.gif", logger)
         val bar = JLabel("Choose files/directories to index", null, SwingConstants.CENTER)
 
         fun updateWith(text: String, iconRunning: Boolean) {
