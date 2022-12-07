@@ -19,7 +19,7 @@ to make simple queries to search tokens in chosen documents.
 ### Steps to launch application:
 1. Build executable jar:
 
-`./gradlew cleanFatJar`
+`./gradlew cleanAndBuildFatJar`
 
 2. Run executable jar:
 

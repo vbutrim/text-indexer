@@ -44,7 +44,7 @@ tasks {
                 sourcesMain.output
         from(contents)
     }
-    register<Jar>("cleanFatJar") {
+    register<Jar>("cleanAndBuildFatJar") {
         group = "build"
 
         dependsOn(clean)
