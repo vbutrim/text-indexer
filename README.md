@@ -6,8 +6,7 @@ Inside there is Kotlin library, which is based on coroutines and provides servic
 contain chosen word(s). This library supports multithreading access, and also defines files and directories changes 
 in the file system. This library can be easily extended with any words splitting mechanism: simple word splitting,
 splitting based on lexers, e.t.c. There is no need to save state between sessions while working with the library.
-Напишите на Котлине и корутинах библиотеку, реализующую сервис индексации текстовых файлов по словам.
-2. Code is covered with necessary tests and there is UI inside, which allows to add directories/files into the index and 
+2. Code is covered with necessary tests and there is UI inside, which allows to add directories / files into the index and 
 to make simple queries to search tokens in chosen documents.
 
 ## Implementation idea explanation
