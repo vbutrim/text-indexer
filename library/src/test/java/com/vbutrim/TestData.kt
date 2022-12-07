@@ -22,3 +22,5 @@ val practicalGuideToHappinessPath = textsMarkMansonDirectoryPath.child("A Practi
 val practicalGuideToHappinessAbsolutePath = practicalGuideToHappinessPath.asAbsolutePath()
 
 const val BE_CURIOUS_NOT_JUDGEMENTAL = "Be curious, not judgemental"
+
+val BE_CURIOUS_NOT_JUDGEMENTAL_TOKENS = listOf("judgemental", "curious")
