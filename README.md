@@ -9,10 +9,6 @@ splitting based on lexers, e.t.c. There is no need to save state between session
 2. Code is covered with necessary tests and there is UI inside, which allows to add directories / files into the index and 
 to make simple queries to search tokens in chosen documents.
 
-## Implementation idea explanation
-
-Library and its UI are split on two modules. 
-
 ## Launch instruction
 
 ### Required program software:
@@ -35,3 +31,12 @@ Library and its UI are split on two modules.
 | syncDelayTimeInSeconds=10 | Sync task launch frequency in seconds | 10      | Integers     |
 | syncStatusIsEnabled=false | Update status during sync             | false   | true / false |
 | debugPanelIsEnabled=false | Shows debug panel                     | false   | true / false |
+
+
+## Demo
+
+### Scenario
+1. Add ./library/src/test/resources/texts dir as source to index.
+2. Make simple search queries.
+3. Add new file and wait until it's automatically synced.
+4. Remove added file and wait until it's automatically synced.
