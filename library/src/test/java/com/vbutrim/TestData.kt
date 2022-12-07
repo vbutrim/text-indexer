@@ -20,3 +20,5 @@ val textsMarkMansonDirectoryAbsolutePath = textsMarkMansonDirectoryPath.asAbsolu
 
 val practicalGuideToHappinessPath = textsMarkMansonDirectoryPath.child("A Practical Guide to Happiness")
 val practicalGuideToHappinessAbsolutePath = practicalGuideToHappinessPath.asAbsolutePath()
+
+const val BE_CURIOUS_NOT_JUDGEMENTAL = "Be curious, not judgemental"

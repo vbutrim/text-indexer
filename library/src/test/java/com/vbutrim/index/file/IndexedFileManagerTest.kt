@@ -1,5 +1,6 @@
 package com.vbutrim.index.file
 
+import com.vbutrim.BE_CURIOUS_NOT_JUDGEMENTAL
 import com.vbutrim.file.asAbsolutePath
 import com.vbutrim.file.child
 import com.vbutrim.file.readModificationTime
@@ -22,7 +23,7 @@ internal class IndexedFileManagerTest {
             val tempFiles = createTwoFiles(tempDir)
             val indexedItems = tempFiles.asIndexedItems()
 
-            tempFiles.file1.writeText("Be curious, not judgemental")
+            tempFiles.file1.writeText(BE_CURIOUS_NOT_JUDGEMENTAL)
 
             // When
             val result = IndexedFileManager.defineItemsToSync(indexedItems)

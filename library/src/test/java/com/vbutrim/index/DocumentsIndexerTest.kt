@@ -164,7 +164,7 @@ internal class DocumentsIndexerTest {
                 tempFile.createNewFile()
             }
 
-            tempFile.writeText("Be curious, not judgemental")
+            tempFile.writeText(BE_CURIOUS_NOT_JUDGEMENTAL)
 
             // When
             val result = documentsIndexer
@@ -175,6 +175,15 @@ internal class DocumentsIndexerTest {
             assertResultContainsTempDirOnly(result, tempDir, tempFile)
             assertTempFileIsIndexed(documentsIndexer, tempFile)
         }
+    }
+
+    private suspend fun assertTempFileIsIndexed(documentsIndexer: DocumentsIndexer, tempFile: File) {
+        Assertions.assertEquals(
+            listOf(tempFile.asAbsolutePath()),
+            documentsIndexer
+                .getDocumentThatContainTokenPathsAsync(listOf("judgemental", "curious"))
+                .await()
+        )
     }
 
     @Test
@@ -188,7 +197,7 @@ internal class DocumentsIndexerTest {
                 tempFile.createNewFile()
             }
 
-            tempFile.writeText("Be curious, not judgemental")
+            tempFile.writeText(BE_CURIOUS_NOT_JUDGEMENTAL)
 
 
             documentsIndexer
@@ -206,7 +215,7 @@ internal class DocumentsIndexerTest {
 
             // Then
             assertResultContainsTempDirOnly(result, tempDir, null)
-            assertTempFileIsNotIndexed(documentsIndexer, tempFile)
+            assertTempFileIsNotIndexed(documentsIndexer)
         }
     }
 
@@ -234,16 +243,7 @@ internal class DocumentsIndexerTest {
         }
     }
 
-    private suspend fun assertTempFileIsIndexed(documentsIndexer: DocumentsIndexer, tempFile: File) {
-        Assertions.assertEquals(
-            listOf(tempFile.asAbsolutePath()),
-            documentsIndexer
-                .getDocumentThatContainTokenPathsAsync(listOf("judgemental", "curious"))
-                .await()
-        )
-    }
-
-    private suspend fun assertTempFileIsNotIndexed(documentsIndexer: DocumentsIndexer, tempFile: File) {
+    private suspend fun assertTempFileIsNotIndexed(documentsIndexer: DocumentsIndexer) {
         Assertions.assertTrue(
             documentsIndexer
                 .getDocumentThatContainTokenPathsAsync(listOf("judgemental", "curious"))
