@@ -34,31 +34,36 @@ internal class DocumentsIndexerConcurrencyTest {
     private suspend fun shouldHandleMultipleRequestSingleRun() {
         withNewTempDirSuspendable { tempDir ->
             // Given
-            val documentsIndexer = documentsIndexerWithTextsAndTempDir(tempDir)
-            val randomStringGenerator = RandomStringGenerator()
+            val context = initContext(tempDir)
 
             // When
-            val jobs = createTempFilesJobs(
-                tempDir,
-                randomStringGenerator,
-                documentsIndexer,
-            )
-
-            val resultD = createResultFileAndIndexJobAsync(
-                Dispatchers.Default,
-                tempDir,
-                randomStringGenerator,
-                documentsIndexer
-            )
+            val jobs = createTempFilesJobs(context)
+            val resultD = createResultFileAndIndexJobAsync(context)
 
             jobs.joinAll()
 
             val result = resultD.await()
 
             // Then
-            assertTempFileIsIndexed(documentsIndexer, result)
+            assertTempFileIsIndexed(context.documentsIndexer, result)
         }
     }
+
+    private suspend fun initContext(tempDir: File): Context {
+        return Context(
+            tempDir,
+            documentsIndexerWithTextsAndTempDir(tempDir),
+            RandomStringGenerator(),
+            Dispatchers.Default
+        )
+    }
+
+    private data class Context(
+        val tempDir: File,
+        val documentsIndexer: DocumentsIndexer,
+        val randomStringGenerator: RandomStringGenerator,
+        val coroutine: CoroutineContext
+    )
 
     private suspend fun assertTempFileIsIndexed(documentsIndexer: DocumentsIndexer, tempFile: File) {
         val result = documentsIndexer
@@ -71,36 +76,26 @@ internal class DocumentsIndexerConcurrencyTest {
     }
 
     private suspend fun createTempFilesJobs(
-        tempDir: File,
-        randomStringGenerator: RandomStringGenerator,
-        documentsIndexer: DocumentsIndexer,
+        context: Context,
     ): List<Job> {
         val jobs = mutableListOf<Job>()
         for (i in 1..junkFilesPerLaunchCount) {
             jobs.add(
-                createNewFileThenIndexThenRemoveJob(
-                    Dispatchers.Default,
-                    tempDir,
-                    randomStringGenerator,
-                    documentsIndexer,
-                )
+                createNewFileThenIndexThenRemoveJob(context)
             )
         }
         return jobs
     }
 
     private suspend fun createNewFileThenIndexThenRemoveJob(
-        coroutineContext: CoroutineContext,
-        tempDir: File,
-        randomStringGenerator: RandomStringGenerator,
-        documentsIndexer: DocumentsIndexer
+        context: Context
     ) = coroutineScope {
-        launch(coroutineContext) {
-            val tempFile = createNewFile(tempDir, randomStringGenerator)
+        launch(context.coroutine) {
+            val tempFile = createNewFile(context.tempDir, context.randomStringGenerator)
 
-            addFileToIndexJob(coroutineContext, documentsIndexer, tempFile)
+            addFileToIndexJob(context.coroutine, context.documentsIndexer, tempFile)
                 .join()
-            removeFileFromIndexJob(coroutineContext, documentsIndexer, tempFile)
+            removeFileFromIndexJob(context.coroutine, context.documentsIndexer, tempFile)
                 .join()
 
             tempFile.delete()
@@ -156,19 +151,16 @@ internal class DocumentsIndexerConcurrencyTest {
     }
 
     private suspend fun createResultFileAndIndexJobAsync(
-        coroutineContext: CoroutineContext,
-        tempDir: File,
-        randomStringGenerator: RandomStringGenerator,
-        documentsIndexer: DocumentsIndexer
+        context: Context
     ): Deferred<File> = coroutineScope {
-        async(coroutineContext) {
+        async(context.coroutine) {
             val tempFile = createNewFile(
-                tempDir,
-                randomStringGenerator.nextString(),
+                context.tempDir,
+                context.randomStringGenerator.nextString(),
                 BE_CURIOUS_NOT_JUDGEMENTAL
             )
 
-            addFileToIndexJob(coroutineContext, documentsIndexer, tempFile)
+            addFileToIndexJob(context.coroutine, context.documentsIndexer, tempFile)
                 .join()
 
             return@async tempFile
