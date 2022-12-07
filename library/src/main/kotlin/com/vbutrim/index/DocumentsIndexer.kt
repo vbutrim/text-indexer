@@ -14,6 +14,11 @@ import org.slf4j.Logger
 import java.util.*
 
 
+/**
+ * This is single point of entry to operate with index.
+ * Not to experience concurrency issues we allow only task at a time with mutex. Alternative approach is to operate with
+ * high-level actor.
+ */
 class DocumentsIndexer(
     private val documentTokenizer: DocumentTokenizer
 ) {
