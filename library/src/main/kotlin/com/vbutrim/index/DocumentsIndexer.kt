@@ -18,6 +18,8 @@ import java.util.*
  * This is single point of entry to operate with index.
  * Not to experience concurrency issues we allow only task at a time with mutex. Alternative approach is to operate with
  * high-level actor.
+ * Presented here idea is supported with its user. We can operate with index only in a single way: either to change
+ * files to index or to use it to search documents that contain tokens.
  */
 class DocumentsIndexer(
     private val documentTokenizer: DocumentTokenizer
