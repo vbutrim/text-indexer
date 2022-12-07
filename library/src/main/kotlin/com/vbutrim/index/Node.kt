@@ -4,7 +4,7 @@ import java.time.Instant
 import java.util.function.Supplier
 
 internal sealed class Node {
-    abstract fun isNestedWithDir(): Boolean
+    abstract fun isIndexedAsNested(): Boolean
 
     class File(private val file: IndexedItem.File) : Node() {
         companion object {
@@ -17,8 +17,8 @@ internal sealed class Node {
             return file.id
         }
 
-        override fun isNestedWithDir(): Boolean{
-            return file.isNestedWithDir()
+        override fun isIndexedAsNested(): Boolean{
+            return file.isIndexedAsNested()
         }
 
         fun asFile(): IndexedItem.File {
@@ -29,29 +29,38 @@ internal sealed class Node {
             file.setModificationTime(modificationTime)
         }
 
-        fun setNotNestedWithDir() {
-            file.setNotNestedWithDir()
+        fun setIsIndexedAsIndependentSource() {
+            file.setIsIndexedAsIndependentSource()
         }
     }
 
     class Dir(
-        private var isIndexed: Boolean,
-        private var isNestedWithDir: Boolean?
+        private var indexedStatus: IndexedStatus
     ) : Node() {
 
         private val children: MutableMap<String, Node> = HashMap()
 
         companion object {
-            fun cons(isIndexed: Boolean, isNestedWithDir: Boolean? = null): Dir {
-                return Dir(isIndexed, isNestedWithDir)
+            private fun cons(indexedStatus: IndexedStatus): Dir {
+                return Dir(indexedStatus)
+            }
+
+            fun cons(isIndexedAsNested: Boolean): Dir {
+                return cons(
+                    if (isIndexedAsNested) {
+                        IndexedStatus.Indexed.AS_NESTED
+                    } else {
+                        IndexedStatus.NotIndexed
+                    }
+                )
             }
 
             fun notIndexed(): Dir {
-                return cons(isIndexed = false)
+                return cons(IndexedStatus.NotIndexed)
             }
 
             fun indexedIndependently(): Dir {
-                return cons(isIndexed = true, isNestedWithDir = false)
+                return cons(IndexedStatus.Indexed.INDEPENDENTLY)
             }
         }
 
@@ -71,20 +80,25 @@ internal sealed class Node {
             return getChildren().sortedBy { it.key }
         }
 
-        fun setIndexed() {
-            if (isIndexed) {
+        /**
+         * considering current status: not to override INDEPENDENTLY
+         */
+        fun setIndexedAsNested() {
+            if (isIndexed()) {
                 return
             }
-            isIndexed = true
+            indexedStatus = IndexedStatus.Indexed.AS_NESTED
         }
 
-        fun setNotIndexedAndNestedWithDirAgnostic() {
-            isIndexed = false
-            isNestedWithDir = null
+        fun setNotIndexed() {
+            indexedStatus = IndexedStatus.NotIndexed
         }
 
         fun isIndexed(): Boolean {
-            return isIndexed
+            return when(indexedStatus) {
+                is IndexedStatus.Indexed -> true
+                is IndexedStatus.NotIndexed -> false
+            }
         }
 
         fun removeAll(childrenToRemove: Set<String>) {
@@ -98,12 +112,26 @@ internal sealed class Node {
             return children.isNotEmpty()
         }
 
-        override fun isNestedWithDir(): Boolean {
-            return isNestedWithDir ?: true
+        override fun isIndexedAsNested(): Boolean {
+            return when(indexedStatus) {
+                is IndexedStatus.NotIndexed -> false
+                is IndexedStatus.Indexed -> (indexedStatus as IndexedStatus.Indexed).isIndexedAsNested
+            }
         }
 
-        fun setNotNestedWithDir() {
-            isNestedWithDir = false
+        fun setIsIndexedAsIndependentSource() {
+            indexedStatus = IndexedStatus.Indexed.INDEPENDENTLY
+        }
+
+        internal sealed class IndexedStatus {
+            object NotIndexed : IndexedStatus()
+
+            class Indexed private constructor(val isIndexedAsNested: Boolean): IndexedStatus() {
+                companion object {
+                    val INDEPENDENTLY = Indexed(false)
+                    val AS_NESTED = Indexed(true)
+                }
+            }
         }
     }
 }

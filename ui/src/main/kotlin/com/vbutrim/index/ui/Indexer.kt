@@ -3,7 +3,6 @@ package com.vbutrim.index.ui
 import com.vbutrim.coroutine.executePeriodically
 import com.vbutrim.file.AbsolutePath
 import com.vbutrim.index.DocumentsIndexer
-import com.vbutrim.index.IndexedItem
 import com.vbutrim.index.IndexedItemsFilter
 import kotlinx.coroutines.*
 import org.slf4j.Logger
@@ -222,7 +221,7 @@ interface Indexer : CoroutineScope {
 
     fun getDocumentsToIndex(): List<AbsolutePath>
 
-    fun updateIndexedDocuments(documents: List<IndexedItem>)
+    fun updateIndexedDocuments(documents: List<DocumentsIndexer.Result.Item>)
 
     fun addUserSelectionOnlyListener(listener: () -> Unit)
 
@@ -234,7 +233,7 @@ interface Indexer : CoroutineScope {
                 val indexedDocuments = documentsIndexer.getIndexedItems(indexedItemsFilter())
 
                 withContext(mainDispatcher) {
-                    updateIndexedDocuments(indexedDocuments)
+                    updateIndexedDocuments(indexedDocuments.finalIndexedItems)
                     setActionStatus(nextActionIsEnabled = true)
                 }
             }

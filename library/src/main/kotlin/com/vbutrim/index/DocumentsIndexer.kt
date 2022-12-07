@@ -32,7 +32,7 @@ class DocumentsIndexer(
         private val logger: Logger = org.slf4j.LoggerFactory.getLogger(DocumentsIndexer::class.java)
     }
 
-    suspend fun getIndexedItems(indexedItemsFilter: IndexedItemsFilter): List<IndexedItem> {
+    suspend fun getIndexedItems(indexedItemsFilter: IndexedItemsFilter): Result.Some {
         val indexedItems: List<IndexedItem>
         try {
             mutex.lock()
@@ -40,7 +40,7 @@ class DocumentsIndexer(
         } finally {
             mutex.unlock()
         }
-        return indexedItems
+        return Result.Some.cons(indexedItems)
     }
 
     suspend fun getDocumentThatContainTokenPathsAsync(tokens: List<String>): Deferred<List<AbsolutePath>> =
@@ -78,7 +78,7 @@ class DocumentsIndexer(
     suspend fun updateWithAsync(
         toIndex: List<AbsolutePath>,
         indexedItemsFilter: IndexedItemsFilter,
-        updateResults: suspend (List<IndexedItem>) -> Unit
+        updateResults: suspend (List<Result.Item>) -> Unit
     ): Deferred<Result> = coroutineScope {
         async {
             if (!isActive || toIndex.isEmpty()) {
@@ -100,7 +100,7 @@ class DocumentsIndexer(
     private suspend fun updateWith(
         toIndex: List<AbsolutePath>,
         indexedItemsFilter: IndexedItemsFilter,
-        updateResults: suspend (List<IndexedItem>) -> Unit
+        updateResults: suspend (List<Result.Item>) -> Unit
     ): Result = coroutineScope {
         val filesAndDirs = FileManager.splitOnFilesAndDirs(toIndex)
 
@@ -126,7 +126,7 @@ class DocumentsIndexer(
         actor.send(IndexerMessage.GetAllIndexedDocuments(indexedItemsD))
         val indexedItems = indexedItemsD.await()
         actor.close()
-        return@coroutineScope Result.Some(indexedItems)
+        return@coroutineScope Result.Some.cons(indexedItems)
     }
 
     private fun log(filesAndDirs: FilesAndDirs) {
@@ -145,7 +145,7 @@ class DocumentsIndexer(
 
         val document: Document.Tokenized = documentTokenizer.tokenize(DocumentReader.read(file))
 
-        indexerActor.send(IndexerMessage.AddDocument(document, file.isNestedWithDir))
+        indexerActor.send(IndexerMessage.AddDocument(document, file.isIndexedAsNested))
 
         logger.debug("File added: " + file.getPath())
     }
@@ -154,7 +154,7 @@ class DocumentsIndexer(
     private fun CoroutineScope.indexerActor(
         indexedItemsFilter: IndexedItemsFilter,
         indexedItems: MutableList<IndexedItem>,
-        updateResults: suspend (List<IndexedItem>) -> Unit
+        updateResults: suspend (List<Result.Item>) -> Unit
     ) = actor<IndexerMessage> {
         for (msg in channel) {
             when (msg) {
@@ -167,13 +167,13 @@ class DocumentsIndexer(
                 }
 
                 is IndexerMessage.AddDocument -> {
-                    val indexedFile = indexedDocuments.add(msg.document, msg.fileIsNestedWithDir)
+                    val indexedFile = indexedDocuments.add(msg.document, msg.fileIsIndexedAsNested)
                     index.updateWith(msg.document, indexedFile.id)
 
-                    if (indexedItemsFilter.isAny() || !msg.fileIsNestedWithDir) {
+                    if (indexedItemsFilter.isAny() || !msg.fileIsIndexedAsNested) {
                         indexedItems.add(indexedFile)
                         indexedItems.sortWith(Comparator.comparing { it.getPathAsString() })
-                        updateResults(indexedItems)
+                        updateResults(indexedItems.map { Result.Item.cons(it) })
                     }
                 }
 
@@ -192,7 +192,7 @@ class DocumentsIndexer(
         class RemoveDocumentIfPresent(val file: FilesAndDirs.File) : IndexerMessage()
         class AddDocument(
             val document: Document.Tokenized,
-            val fileIsNestedWithDir: Boolean
+            val fileIsIndexedAsNested: Boolean
         ) : IndexerMessage()
 
         class GetAllIndexedDocuments(val response: CompletableDeferred<List<IndexedItem>>) : IndexerMessage()
@@ -237,7 +237,7 @@ class DocumentsIndexer(
 
         remove(toRemove)
 
-        return Result.Some(indexedDocuments.getIndexedItems(indexedItemsFilter))
+        return Result.Some.cons(indexedDocuments.getIndexedItems(indexedItemsFilter))
     }
 
     private fun getDocumentsToRemove(
@@ -307,7 +307,7 @@ class DocumentsIndexer(
 
         val indexedItemsD = CompletableDeferred<List<IndexedItem>>()
         actor.send(IndexerMessage.GetAllIndexedDocuments(indexedItemsD))
-        val synced = Result.Some(indexedItemsD.await())
+        val synced = Result.Some.cons(indexedItemsD.await())
         actor.close()
 
         return@coroutineScope synced
@@ -326,6 +326,29 @@ class DocumentsIndexer(
     sealed class Result {
         object Nothing : Result()
 
-        class Some(val finalIndexedItems: List<IndexedItem>) : Result()
+        class Some private constructor(val finalIndexedItems: List<Item>) : Result() {
+            companion object {
+                fun cons(finalIndexedItems: List<IndexedItem>): Some {
+                    return Some(finalIndexedItems.map { Item.cons(it) })
+                }
+            }
+        }
+
+        /**
+         * not to return internal objects that can be modified externally
+         */
+        sealed class Item(open val path: AbsolutePath) {
+            companion object {
+                fun cons(item: IndexedItem): Item {
+                    return when(item) {
+                        is IndexedItem.Dir -> Dir(item.path, item.nested.map { cons(it) })
+                        is IndexedItem.File -> File(item.path)
+                    }
+                }
+            }
+            class Dir(override val path: AbsolutePath, val nested: List<Item>) : Item(path)
+
+            class File(override val path: AbsolutePath) : Item(path)
+        }
     }
 }

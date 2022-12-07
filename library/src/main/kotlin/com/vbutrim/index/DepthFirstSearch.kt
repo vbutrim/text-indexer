@@ -26,7 +26,7 @@ internal abstract class DepthFirstSearch {
         ): List<IndexedItem> {
             return when (current) {
                 is Node.File -> {
-                    return if (indexedItemsFilter.isAny() || !current.isNestedWithDir()) {
+                    return if (indexedItemsFilter.isAny() || !current.isIndexedAsNested()) {
                         listOf(current.asFile())
                     } else {
                         listOf()
@@ -46,7 +46,7 @@ internal abstract class DepthFirstSearch {
                 items.addAll(dfsOnGetAllIndexedPaths(child.value, path.resolve(child.key), indexedItemsFilter))
             }
 
-            if (current.isIndexed() && (indexedItemsFilter.isAny() || !current.isNestedWithDir())) {
+            if (current.isIndexed() && (indexedItemsFilter.isAny() || !current.isIndexedAsNested())) {
                 return listOf(IndexedItem.Dir(path.asAbsolutePath(), items))
             }
 
@@ -123,7 +123,7 @@ internal abstract class DepthFirstSearch {
             current.removeAll(childrenToRemove)
 
             if (toRemove.dirShouldBeMarkedAsNotIndexedByAbsolutePath(path)) {
-                current.setNotIndexedAndNestedWithDirAgnostic()
+                current.setNotIndexed()
             }
 
             return removeForcibly
@@ -131,21 +131,21 @@ internal abstract class DepthFirstSearch {
                     || !current.isIndexed() && !current.hasAnyChild()
         }
 
-        fun markAllSubdirectoriesAsIndexed(current: Node.Dir) {
+        fun markAllSubdirsAsIndexedAsNested(current: Node.Dir) {
             for (child in current.getChildren()) {
-                markAllSubdirectoriesAsIndexed(child.value)
+                markAllSubdirsAsIndexedAsNested(child.value)
             }
         }
 
-        private fun markAllSubdirectoriesAsIndexed(current: Node) {
+        private fun markAllSubdirsAsIndexedAsNested(current: Node) {
             when (current) {
                 is Node.File -> {
                     return
                 }
 
                 is Node.Dir -> {
-                    current.setIndexed()
-                    markAllSubdirectoriesAsIndexed(current)
+                    current.setIndexedAsNested()
+                    markAllSubdirsAsIndexedAsNested(current)
                 }
             }
         }

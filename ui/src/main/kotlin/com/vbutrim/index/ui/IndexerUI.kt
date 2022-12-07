@@ -3,7 +3,6 @@ package com.vbutrim.index.ui
 import com.vbutrim.file.AbsolutePath
 import com.vbutrim.file.asAbsolutePath
 import com.vbutrim.index.DocumentsIndexer
-import com.vbutrim.index.IndexedItem
 import com.vbutrim.index.IndexedItemsFilter
 import kotlinx.coroutines.Job
 import org.slf4j.Logger
@@ -133,7 +132,7 @@ class IndexerUI(
         return Collections.emptyList()
     }
 
-    override fun updateIndexedDocuments(documents: List<IndexedItem>) {
+    override fun updateIndexedDocuments(documents: List<DocumentsIndexer.Result.Item>) {
         indexedDocuments.updateWith(documents)
     }
 
@@ -232,25 +231,25 @@ class IndexerUI(
             private const val DIR_PREFIX: String = "[dir] "
         }
 
-        fun updateWith(indexedItems: List<IndexedItem>) {
+        fun updateWith(indexedItems: List<DocumentsIndexer.Result.Item>) {
             super.set(consRows(indexedItems).toList())
         }
 
-        private fun consRows(indexedItems: List<IndexedItem>): Stream<Array<*>> {
+        private fun consRows(indexedItems: List<DocumentsIndexer.Result.Item>): Stream<Array<*>> {
             return indexedItems
                 .stream()
                 .flatMap { consRows(it) }
         }
 
-        private fun consRows(indexedItem: IndexedItem): Stream<Array<String>> =
+        private fun consRows(indexedItem: DocumentsIndexer.Result.Item): Stream<Array<String>> =
             when (indexedItem) {
-                is IndexedItem.File -> {
-                    Stream.of(arrayOf(indexedItem.getPathAsString()))
+                is DocumentsIndexer.Result.Item.File -> {
+                    Stream.of(arrayOf(indexedItem.path.getPathAsString()))
                 }
 
-                is IndexedItem.Dir -> {
+                is DocumentsIndexer.Result.Item.Dir -> {
                     Stream.concat(
-                        Stream.of(arrayOf(DIR_PREFIX + indexedItem.getPathAsString())),
+                        Stream.of(arrayOf(DIR_PREFIX + indexedItem.path.getPathAsString())),
                         indexedItem.nested.stream().flatMap { consRows(it) }
                     )
                 }

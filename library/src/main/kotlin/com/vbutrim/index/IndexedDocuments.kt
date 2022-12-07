@@ -31,23 +31,22 @@ class IndexedDocuments {
                     "not a dirNode"
                 }
 
-                it.setIndexed()
-                it.setNotNestedWithDir()
-                DepthFirstSearch.markAllSubdirectoriesAsIndexed(it)
+                it.setIsIndexedAsIndependentSource()
+                DepthFirstSearch.markAllSubdirsAsIndexedAsNested(it)
             }
     }
 
     /**
-     * Creates file node if it's not created yet and marks it as as independent source.
+     * Creates file node if it's not created yet and marks it as independent source.
      */
     fun add(
         document: Document.Tokenized,
-        isNestedWithDir: Boolean
+        isIndexedAsNested: Boolean
     ): IndexedItem.File {
         val fileNode = computeDirNode(document.getDir())
             .computeIfAbsent(document.getFileName()) {
                 Node.File.cons(
-                    IndexedItem.File.of(nextId++, document, isNestedWithDir)
+                    IndexedItem.File.cons(nextId++, document, isIndexedAsNested)
                 )
             }
 
@@ -55,8 +54,8 @@ class IndexedDocuments {
             "not a fileNode"
         }
 
-        if (!isNestedWithDir) {
-            fileNode.setNotNestedWithDir()
+        if (!isIndexedAsNested) {
+            fileNode.setIsIndexedAsIndependentSource()
         }
 
         fileNode.setModificationTime(document.getModificationTime())
@@ -136,9 +135,11 @@ class IndexedDocuments {
 
             shouldBeMarkedAsIndexed = shouldBeMarkedAsIndexed || current.isIndexed()
             current = current
-                .computeIfAbsent(subDir.toString()) { Node.Dir.cons(shouldBeMarkedAsIndexed) }
+                .computeIfAbsent(subDir.toString()) {
+                    Node.Dir.cons(shouldBeMarkedAsIndexed)
+                }
                 .let {
-                    markAsIndexedIf(shouldBeMarkedAsIndexed, it)
+                    markAsIndexedAsNestedIf(shouldBeMarkedAsIndexed, it)
                     it
                 }
         }
@@ -149,12 +150,12 @@ class IndexedDocuments {
         return current
     }
 
-    private fun markAsIndexedIf(shouldMarkAsIndexed: Boolean, current: Node) {
-        if (shouldMarkAsIndexed) {
+    private fun markAsIndexedAsNestedIf(shouldBeMarkAsIndexed: Boolean, current: Node) {
+        if (shouldBeMarkAsIndexed) {
             when (current) {
                 is Node.File -> {}
                 is Node.Dir -> {
-                    current.setIndexed()
+                    current.setIndexedAsNested()
                 }
             }
         }

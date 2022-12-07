@@ -13,7 +13,7 @@ abstract class FileManager {
                 val file = File(path.getPathAsString())
 
                 if (file.isFile) {
-                    files.add(FilesAndDirs.File.independent(file))
+                    files.add(FilesAndDirs.File.independentSource(file))
                     continue
                 }
 
@@ -35,7 +35,7 @@ abstract class FileManager {
 
             return dir.walkTopDown()
                 .filter { it.isFile }
-                .map { FilesAndDirs.File.nestedWithDir(it) }
+                .map { FilesAndDirs.File.indexedAsNested(it) }
         }
 
         fun fileExists(file: File): Boolean {

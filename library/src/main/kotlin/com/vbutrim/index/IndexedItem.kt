@@ -18,24 +18,28 @@ sealed class IndexedItem(open val path: AbsolutePath) {
          * Defines if file is marked as independent source to index of it's indexed as nested in directory,
          * that is marked as source
          */
-        private var isNestedWithDir: Boolean
+        private var isIndexedAsNested: Boolean
     ) : IndexedItem(path) {
         companion object {
-            fun of(id: Int, document: Document.Tokenized, isNestedWithDir: Boolean): File {
-                return File(document.getPath(), id, document.getModificationTime(), isNestedWithDir)
+            fun cons(id: Int, document: Document.Tokenized, isIndexedAsNested: Boolean): File {
+                return File(document.getPath(), id, document.getModificationTime(), isIndexedAsNested)
             }
         }
 
-        fun isNestedWithDir(): Boolean {
-            return isNestedWithDir
+        fun isIndexedAsNested(): Boolean {
+            return isIndexedAsNested
         }
 
-        fun setNotNestedWithDir() {
-            isNestedWithDir = false
+        fun setIsIndexedAsIndependentSource() {
+            isIndexedAsNested = false
         }
 
-        fun setModificationTime(modificationTime: Instant) {
+        internal fun setModificationTime(modificationTime: Instant) {
             this.modificationTime = modificationTime
+        }
+
+        fun getModificationTime(): Instant {
+            return modificationTime
         }
 
         /**

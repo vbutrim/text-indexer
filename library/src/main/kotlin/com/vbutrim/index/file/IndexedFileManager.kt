@@ -110,7 +110,7 @@ abstract class IndexedFileManager {
                 toSyncBuilder.addFileToAdd(
                     FilesAndDirs.File.cons(
                         File(indexedFile.getPathAsString()),
-                        indexedFile.isNestedWithDir()
+                        indexedFile.isIndexedAsNested()
                     )
                 )
             }
@@ -164,7 +164,7 @@ abstract class IndexedFileManager {
             private fun getNewFiles(): Sequence<FilesAndDirs.File> {
                 return newFilesInDir.keys.minus(oldFilesInDir.keys)
                     .asSequence()
-                    .map { FilesAndDirs.File.nestedWithDir(File(it.getPathAsString())) }
+                    .map { FilesAndDirs.File.indexedAsNested(File(it.getPathAsString())) }
             }
 
             private fun getOutDatedFiles(): Sequence<FilesAndDirs.File> {
@@ -181,7 +181,7 @@ abstract class IndexedFileManager {
                     .map { outDatedFile ->
                         FilesAndDirs.File.cons(
                             File(outDatedFile.first.key.getPathAsString()),
-                            outDatedFile.first.value.isNestedWithDir()
+                            outDatedFile.first.value.isIndexedAsNested()
                         )
                     }
             }

@@ -17,17 +17,17 @@ class FilesAndDirs(val files: List<File>, val dirs: List<Dir>) {
 
     class File private constructor(
         private val file: java.io.File,
-        val isNestedWithDir: Boolean)
+        val isIndexedAsNested: Boolean)
     {
         companion object {
-            fun cons(file: java.io.File, isNestedWithDir: Boolean): File {
-                return File(file, isNestedWithDir)
+            fun cons(file: java.io.File, isIndexedAsNested: Boolean): File {
+                return File(file, isIndexedAsNested)
             }
-            fun independent(file: java.io.File): File {
+            fun independentSource(file: java.io.File): File {
                 return cons(file, false)
             }
 
-            fun nestedWithDir(file: java.io.File): File {
+            fun indexedAsNested(file: java.io.File): File {
                 return cons(file, true)
             }
         }

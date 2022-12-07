@@ -38,7 +38,7 @@ internal class DocumentsIndexerTest {
         assertTextsDirIsFullyIndexed(finalIndexedItems)
     }
 
-    private fun assertTextsDirIsFullyIndexed(finalIndexedItems: List<IndexedItem>) {
+    private fun assertTextsDirIsFullyIndexed(finalIndexedItems: List<DocumentsIndexer.Result.Item>) {
         Assertions.assertEquals(
             listOf(textsDirectoryAbsolutePath),
             finalIndexedItems.map { it.path }
@@ -83,9 +83,9 @@ internal class DocumentsIndexerTest {
         // Then
         Assertions.assertEquals(
             listOf(textsDirectoryAbsolutePath),
-            result.map { it.path }
+            result.finalIndexedItems.map { it.path }
         )
-        Assertions.assertTrue(result.flatMappedFiles().isEmpty())
+        Assertions.assertTrue(result.finalIndexedItems.flatMappedFiles().isEmpty())
         assertSimpleSearchResultIsCorrect(documentsIndexer)
     }
 
@@ -153,18 +153,9 @@ internal class DocumentsIndexerTest {
     fun shouldSyncNewFileAsync() = runTest {
         withNewTempDirSuspendable { tempDir ->
             // Given
-            val documentsIndexer = documentsIndexer()
+            val documentsIndexer = documentsIndexerWithIndexedTempDir(tempDir)
 
-            documentsIndexer
-                .updateWithAsync(listOf(tempDir.asAbsolutePath()), IndexedItemsFilter.ANY) {}
-                .await()
-
-            val tempFile = tempDir.child("temp_file")
-            withContext(Dispatchers.IO) {
-                tempFile.createNewFile()
-            }
-
-            tempFile.writeText(BE_CURIOUS_NOT_JUDGEMENTAL)
+            val tempFile = createTempFile(tempDir)
 
             // When
             val result = documentsIndexer
@@ -177,45 +168,12 @@ internal class DocumentsIndexerTest {
         }
     }
 
-    private suspend fun assertTempFileIsIndexed(documentsIndexer: DocumentsIndexer, tempFile: File) {
-        Assertions.assertEquals(
-            listOf(tempFile.asAbsolutePath()),
-            documentsIndexer
-                .getDocumentThatContainTokenPathsAsync(BE_CURIOUS_NOT_JUDGEMENTAL_TOKENS)
-                .await()
-        )
-    }
-
-    @Test
-    fun shouldSyncRemovedFileAsync() = runTest {
-        withNewTempDirSuspendable { tempDir ->
-            // Given
-            val documentsIndexer = documentsIndexer()
-
-            val tempFile = tempDir.child("temp_file")
-            withContext(Dispatchers.IO) {
-                tempFile.createNewFile()
-            }
-
-            tempFile.writeText(BE_CURIOUS_NOT_JUDGEMENTAL)
-
-
-            documentsIndexer
+    private suspend fun documentsIndexerWithIndexedTempDir(tempDir: File): DocumentsIndexer {
+        return documentsIndexer().let {
+            it
                 .updateWithAsync(listOf(tempDir.asAbsolutePath()), IndexedItemsFilter.ANY) {}
                 .await()
-
-            assertTempFileIsIndexed(documentsIndexer, tempFile)
-
-            tempFile.delete()
-
-            // When
-            val result = documentsIndexer
-                .syncIndexedItemsAsync(IndexedItemsFilter.ANY) {}
-                .await()
-
-            // Then
-            assertResultContainsTempDirOnly(result, tempDir, null)
-            assertTempFileIsNotIndexed(documentsIndexer)
+            it
         }
     }
 
@@ -243,6 +201,50 @@ internal class DocumentsIndexerTest {
         }
     }
 
+    private suspend fun assertTempFileIsIndexed(documentsIndexer: DocumentsIndexer, tempFile: File) {
+        assertTempFileIsIndexed(documentsIndexer, tempFile, BE_CURIOUS_NOT_JUDGEMENTAL_TOKENS)
+    }
+
+    private suspend fun assertTempFileIsIndexed(
+        documentsIndexer: DocumentsIndexer,
+        tempFile: File,
+        tempFilesTokens: List<String>
+    ) {
+        Assertions.assertEquals(
+            listOf(tempFile.asAbsolutePath()),
+            documentsIndexer
+                .getDocumentThatContainTokenPathsAsync(tempFilesTokens)
+                .await()
+        )
+    }
+
+    @Test
+    fun shouldSyncRemovedFileAsync() = runTest {
+        withNewTempDirSuspendable { tempDir ->
+            // Given
+            val documentsIndexer = documentsIndexer()
+
+            val tempFile = createTempFile(tempDir)
+
+            documentsIndexer
+                .updateWithAsync(listOf(tempDir.asAbsolutePath()), IndexedItemsFilter.ANY) {}
+                .await()
+
+            assertTempFileIsIndexed(documentsIndexer, tempFile)
+
+            tempFile.delete()
+
+            // When
+            val result = documentsIndexer
+                .syncIndexedItemsAsync(IndexedItemsFilter.ANY) {}
+                .await()
+
+            // Then
+            assertResultContainsTempDirOnly(result, tempDir, null)
+            assertTempFileIsNotIndexed(documentsIndexer)
+        }
+    }
+
     private suspend fun assertTempFileIsNotIndexed(documentsIndexer: DocumentsIndexer) {
         Assertions.assertTrue(
             documentsIndexer
@@ -250,6 +252,44 @@ internal class DocumentsIndexerTest {
                 .await()
                 .isEmpty()
         )
+    }
+
+    @Test
+    fun shouldSyncModifiedFileAsync() = runTest {
+        withNewTempDirSuspendable { tempDir ->
+            // Given
+            val documentsIndexer = documentsIndexerWithIndexedTempDir(tempDir)
+
+            val tempFile = createTempFile(tempDir)
+
+            sync(documentsIndexer)
+
+            assertTempFileIsIndexed(documentsIndexer, tempFile)
+
+            // When
+            tempFile.writeText("\nWalt Whitman")
+            val result = sync(documentsIndexer)
+
+            // Then
+            assertResultContainsTempDirOnly(result, tempDir, tempFile)
+            assertTempFileIsIndexed(documentsIndexer, tempFile, listOf("walt", "whitman"))
+        }
+    }
+
+    private suspend fun sync(documentsIndexer: DocumentsIndexer): DocumentsIndexer.Result {
+        return documentsIndexer
+            .syncIndexedItemsAsync(IndexedItemsFilter.ANY) {}
+            .await()
+    }
+
+    private suspend fun createTempFile(tempDir: File): File {
+        val tempFile = tempDir.child("temp_file")
+        withContext(Dispatchers.IO) {
+            tempFile.createNewFile()
+        }
+
+        tempFile.writeText(BE_CURIOUS_NOT_JUDGEMENTAL)
+        return tempFile
     }
 }
 
@@ -264,5 +304,18 @@ suspend fun documentsIndexerWithTextsSource(): DocumentsIndexer {
         it.updateWithAsync(listOf(textsDirectoryAbsolutePath), IndexedItemsFilter.ANY) {}
             .await()
         it
+    }
+}
+
+fun List<DocumentsIndexer.Result.Item>.flatMappedFiles(): List<DocumentsIndexer.Result.Item> {
+    return this.flatMap {
+        when (it) {
+            is DocumentsIndexer.Result.Item.File -> {
+                listOf(it)
+            }
+            is DocumentsIndexer.Result.Item.Dir -> {
+                it.nested.flatMappedFiles()
+            }
+        }
     }
 }
