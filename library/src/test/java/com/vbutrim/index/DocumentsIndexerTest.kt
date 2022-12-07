@@ -181,7 +181,7 @@ internal class DocumentsIndexerTest {
         Assertions.assertEquals(
             listOf(tempFile.asAbsolutePath()),
             documentsIndexer
-                .getDocumentThatContainTokenPathsAsync(listOf("judgemental", "curious"))
+                .getDocumentThatContainTokenPathsAsync(BE_CURIOUS_NOT_JUDGEMENTAL_TOKENS)
                 .await()
         )
     }
@@ -246,7 +246,7 @@ internal class DocumentsIndexerTest {
     private suspend fun assertTempFileIsNotIndexed(documentsIndexer: DocumentsIndexer) {
         Assertions.assertTrue(
             documentsIndexer
-                .getDocumentThatContainTokenPathsAsync(listOf("judgemental", "curious"))
+                .getDocumentThatContainTokenPathsAsync(BE_CURIOUS_NOT_JUDGEMENTAL_TOKENS)
                 .await()
                 .isEmpty()
         )

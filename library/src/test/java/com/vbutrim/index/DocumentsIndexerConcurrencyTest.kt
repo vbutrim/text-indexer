@@ -1,6 +1,7 @@
 package com.vbutrim.index
 
 import com.vbutrim.BE_CURIOUS_NOT_JUDGEMENTAL
+import com.vbutrim.BE_CURIOUS_NOT_JUDGEMENTAL_TOKENS
 import com.vbutrim.file.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.test.runTest
@@ -34,23 +35,23 @@ internal class DocumentsIndexerConcurrencyTest {
     private suspend fun shouldHandleMultipleRequestSingleRun() {
         withNewTempDirSuspendable { tempDir ->
             // Given
-            val context = initContext(tempDir)
+            val testContext = initTestContext(tempDir)
 
             // When
-            val jobs = createTempFilesJobs(context)
-            val resultD = createResultFileAndIndexJobAsync(context)
+            val jobs = createTempFilesJobs(testContext)
+            val resultD = createResultFileAndIndexJobAsync(testContext)
 
             jobs.joinAll()
 
             val result = resultD.await()
 
             // Then
-            assertTempFileIsIndexed(context.documentsIndexer, result)
+            assertTempFileIsIndexed(testContext.documentsIndexer, result)
         }
     }
 
-    private suspend fun initContext(tempDir: File): Context {
-        return Context(
+    private suspend fun initTestContext(tempDir: File): TestContext {
+        return TestContext(
             tempDir,
             documentsIndexerWithTextsAndTempDir(tempDir),
             RandomStringGenerator(),
@@ -58,44 +59,27 @@ internal class DocumentsIndexerConcurrencyTest {
         )
     }
 
-    private data class Context(
-        val tempDir: File,
-        val documentsIndexer: DocumentsIndexer,
-        val randomStringGenerator: RandomStringGenerator,
-        val coroutine: CoroutineContext
-    )
-
-    private suspend fun assertTempFileIsIndexed(documentsIndexer: DocumentsIndexer, tempFile: File) {
-        val result = documentsIndexer
-            .getDocumentThatContainTokenPathsAsync(listOf("judgemental", "curious"))
-            .await()
-        Assertions.assertEquals(
-            listOf(tempFile.asAbsolutePath()),
-            result
-        )
-    }
-
     private suspend fun createTempFilesJobs(
-        context: Context,
+        testContext: TestContext,
     ): List<Job> {
         val jobs = mutableListOf<Job>()
         for (i in 1..junkFilesPerLaunchCount) {
             jobs.add(
-                createNewFileThenIndexThenRemoveJob(context)
+                createNewFileThenIndexThenRemoveJob(testContext)
             )
         }
         return jobs
     }
 
     private suspend fun createNewFileThenIndexThenRemoveJob(
-        context: Context
+        testContext: TestContext
     ) = coroutineScope {
-        launch(context.coroutine) {
-            val tempFile = createNewFile(context.tempDir, context.randomStringGenerator)
+        launch(testContext.coroutine) {
+            val tempFile = createNewFile(testContext.tempDir, testContext.randomStringGenerator)
 
-            addFileToIndexJob(context.coroutine, context.documentsIndexer, tempFile)
+            addFileToIndexJob(testContext.coroutine, testContext.documentsIndexer, tempFile)
                 .join()
-            removeFileFromIndexJob(context.coroutine, context.documentsIndexer, tempFile)
+            removeFileFromIndexJob(testContext.coroutine, testContext.documentsIndexer, tempFile)
                 .join()
 
             tempFile.delete()
@@ -151,20 +135,30 @@ internal class DocumentsIndexerConcurrencyTest {
     }
 
     private suspend fun createResultFileAndIndexJobAsync(
-        context: Context
+        testContext: TestContext
     ): Deferred<File> = coroutineScope {
-        async(context.coroutine) {
+        async(testContext.coroutine) {
             val tempFile = createNewFile(
-                context.tempDir,
-                context.randomStringGenerator.nextString(),
+                testContext.tempDir,
+                testContext.randomStringGenerator.nextString(),
                 BE_CURIOUS_NOT_JUDGEMENTAL
             )
 
-            addFileToIndexJob(context.coroutine, context.documentsIndexer, tempFile)
+            addFileToIndexJob(testContext.coroutine, testContext.documentsIndexer, tempFile)
                 .join()
 
             return@async tempFile
         }
+    }
+
+    private suspend fun assertTempFileIsIndexed(documentsIndexer: DocumentsIndexer, tempFile: File) {
+        val result = documentsIndexer
+            .getDocumentThatContainTokenPathsAsync(BE_CURIOUS_NOT_JUDGEMENTAL_TOKENS)
+            .await()
+        Assertions.assertEquals(
+            listOf(tempFile.asAbsolutePath()),
+            result
+        )
     }
 
     private suspend fun documentsIndexerWithTextsAndTempDir(tempDir: File): DocumentsIndexer {
@@ -174,4 +168,11 @@ internal class DocumentsIndexerConcurrencyTest {
             it
         }
     }
+
+    private data class TestContext(
+        val tempDir: File,
+        val documentsIndexer: DocumentsIndexer,
+        val randomStringGenerator: RandomStringGenerator,
+        val coroutine: CoroutineContext
+    )
 }
